@@ -29,6 +29,22 @@ public:
                                    boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1 /* , client.nickname, server.password */));
     }
 
+    void shutdown(void)
+    {
+        std::cout << "[i] Shutting down bot..." << std::endl;
+        sendToServer("QUIT :Shutting down\r\n");
+
+        if (socket_.is_open())
+        {
+            boost::system::error_code ec;
+            socket_.shutdown(tcp::socket::shutdown_both, ec); // Завершение работы с сокетом
+            socket_.close(ec);
+        }
+
+        exit(0); // Принудительный выход из программы
+        //io_context_.stop();
+    }
+
     void sendToServer(const std::string &message)
     {
         if (socket_.is_open())
@@ -245,6 +261,7 @@ private:
         const auto &client = config_.get_client();
         const auto &feature = config_.get_feature();
         ircmsg.parse(line);
+        bool rusnetAuth = false;
 
         // Теперь весь парсинг происходит через IRCMessage
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
@@ -256,14 +273,29 @@ private:
             sendToServer(pong);
         }
 
+        if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos) {
+            std::cout << "[+] " << ircmsg.trailing << '\n';
+            std::cout << "[+] RusNet Server detected\n";
+            rusnetAuth = true;
+        }
+
         if (ircmsg.command == "376" || ircmsg.command == "422")
         {
             std::cout << "[+] End of MOTD command received\n";
             if (!client.nickserv_password.empty())
             {
-                std::string ns_auth = "NICKSERV IDENTIFY " + client.nickserv_password + "\r\n";
+                std::string ns_auth = "";
+                if (rusnetAuth)
+                {
+                    ns_auth = "NICKSERV :IDENTIFY " + client.nickserv_password + "\r\n";
+                }
+                else
+                {
+                    ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
+                }
                 sendToServer(ns_auth);
-                std::cout << "[+] Sent NICKSERV IDENTIFY command\n";
+                std::cout << "[+] Sent NICKSERV AUTH\n";
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
 
             for (size_t i = 0; i < client.channels.size(); i++)
@@ -292,22 +324,93 @@ private:
             // Пример реакции на "hello bot"
             if (text == ".hi")
             {
+                std::string target("");
+                if (ircmsg.params[0].find("#") != std::string::npos)
+                {
+                    target = ircmsg.params[0];
+                }
+                else
+                {
+                    target = ircmsg.prefix.nick;
+                }
+                if (target.empty()) {
+                    std::cout << "[DEBUG] Target is empty\n";
+                    return; // Пропускаем, если target пуст
+                }
                 for (size_t i = 0; i < client.admins.size(); i++)
                 {
                     if (client.admins[i] == ircmsg.prefix.nick)
                     {
                         std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
-                        std::string reply = "PRIVMSG " + channel + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
+                        std::string reply = "PRIVMSG " + target + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
                         sendToServer(reply);
                         break;
                     }
                 }
             }
 
+            if (text.substr(0, 4) == ".bye")
+            {
+                if (client.admins.empty())
+                {
+                    std::cout << "[DEBUG] Admins list is empty\n";
+                    return; // Пропускаем, если admins пуст
+                }
+                else
+                {
+                    std::string target("");
+                    std::string reason = text.substr(5);
+                    for (size_t i = 0; i < client.admins.size(); i++)
+                    {
+                        if (client.admins[i] == ircmsg.prefix.nick)
+                        {
+                            if (ircmsg.params[0].find("#") != std::string::npos)
+                            {
+                                target = ircmsg.params[0];
+                            }
+                            else
+                            {
+                                target = ircmsg.prefix.nick;
+                            }
+                        }
+                        std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                        std::string reply = "";
+                        if (!reason.empty()) 
+                        {
+                            reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
+                        }
+                        else
+                        {
+                            reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+                        }
+                            
+                        sendToServer(reply);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        shutdown();
+                        break;
+                    }
+                }
+            }
+        
+
             if (text.substr(0, 4) == ".ip ")
             {
                 std::cout << "[DEBUG] Command .ip received by " << ircmsg.prefix.nick << ":" << text << '\n';
                 std::vector<std::string> parts = splitStringBySpaces(text.substr(4));
+                std::string target("");
+                if (ircmsg.params[0].find("#") != std::string::npos)
+                {
+                    target = ircmsg.params[0];
+                }
+                else
+                {
+                    target = ircmsg.prefix.nick;
+                }
+                if (target.empty())
+                {
+                    std::cout << "[DEBUG] Target is empty\n";
+                    return; // Пропускаем, если target пуст
+                }
                 for (size_t i = 0; i < parts.size(); i++)
                 {
                     std::cout << "[DEBUG] Part " << i << ": " << parts[i] << '\n';
@@ -328,7 +431,7 @@ private:
                         {
                             std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
                             std::cout << "Bot reply: " << botReply << '\n';
-                            sendToServer("PRIVMSG " + channel + " :" + botReply + "\r\n");
+                            sendToServer("PRIVMSG " + target + " :" + botReply + "\r\n");
                         }
                         else if (infoVect.size() > 1)
                         {
@@ -342,7 +445,7 @@ private:
                             std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
-                                sendToServer("PRIVMSG " + channel + " :" + packedIpAddr[i] + "\r\n");
+                                sendToServer("PRIVMSG " + target + " :" + packedIpAddr[i] + "\r\n");
                             }
                         }
                     }

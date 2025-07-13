@@ -16,7 +16,7 @@ class IRCBot
 public:
     IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
         : socket_(io_context), config_(config) {}
-
+    bool rusnetAuth = false;
     void start(void)
     {
         const auto &server = config_.get_server();
@@ -261,7 +261,6 @@ private:
         const auto &client = config_.get_client();
         const auto &feature = config_.get_feature();
         ircmsg.parse(line);
-        bool rusnetAuth = false;
 
         // Теперь весь парсинг происходит через IRCMessage
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
@@ -287,10 +286,12 @@ private:
                 std::string ns_auth = "";
                 if (rusnetAuth)
                 {
-                    ns_auth = "NICKSERV :IDENTIFY " + client.nickserv_password + "\r\n";
+                    std::cout << "[DEBUG] RusNet reply formed\n";
+                    ns_auth = "NICKSERV IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 else
                 {
+                    std::cout << "[DEBUG] Normal reply formed\n";
                     ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 sendToServer(ns_auth);
@@ -349,7 +350,7 @@ private:
                 }
             }
 
-            if (text.substr(0, 4) == ".bye")
+            if (text.size() >= 4 && text.substr(0, 4) == ".bye")
             {
                 if (client.admins.empty())
                 {
@@ -359,7 +360,10 @@ private:
                 else
                 {
                     std::string target("");
-                    std::string reason = text.substr(5);
+                    std::string reason = "";
+                    if (text.size() > 4) {
+                        reason = text.substr(5);
+                    }
                     for (size_t i = 0; i < client.admins.size(); i++)
                     {
                         if (client.admins[i] == ircmsg.prefix.nick)
@@ -372,22 +376,22 @@ private:
                             {
                                 target = ircmsg.prefix.nick;
                             }
+                            std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                            std::string reply = "";
+                            if (!reason.empty())
+                            {
+                                reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
+                            }
+                            else
+                            {
+                                reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+                            }
+
+                            sendToServer(reply);
+                            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                            shutdown();
+                            break;
                         }
-                        std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
-                        std::string reply = "";
-                        if (!reason.empty()) 
-                        {
-                            reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
-                        }
-                        else
-                        {
-                            reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
-                        }
-                            
-                        sendToServer(reply);
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                        shutdown();
-                        break;
                     }
                 }
             }

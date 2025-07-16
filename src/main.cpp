@@ -272,7 +272,52 @@ private:
             sendToServer(pong);
         }
 
-        if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos) {
+        if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
+        {
+            std::string ctcpCommand = ircmsg.trailing.substr(1, ircmsg.trailing.size() - 2);
+            std::string target = "";
+            if (ircmsg.params[0].find("#") != std::string::npos)
+            {
+                target = ircmsg.params[0];
+            }
+            else
+            {
+                target = ircmsg.prefix.nick;
+            }
+
+            if (ctcpCommand.find("VERSION") != std::string::npos)
+            {
+                if (target.empty())
+                {
+                    std::cout << "[DEBUG] Target is empty\n";
+                    return; // Пропускаем, если target пуст
+                }
+                else
+                {
+                    std::string ctcpReply = "NOTICE " + target + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
+                    sendToServer(ctcpReply);
+                    std::cout << "[+] Sent CTCP VERSION to " << target << '\n';
+                }
+            }
+
+            if (ctcpCommand.find("PING") != std::string::npos)
+            {
+                if (target.empty())
+                {
+                    std::cout << "[DEBUG] Target is empty\n";
+                    return; // Пропускаем, если target пуст
+                }
+                else
+                {
+                    std::string ctcpReply = "NOTICE " + target + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
+                    sendToServer(ctcpReply);
+                    std::cout << "[+] Sent CTCP PING to " << target << '\n';
+                }
+            }
+        }
+
+        if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos)
+        {
             std::cout << "[+] " << ircmsg.trailing << '\n';
             std::cout << "[+] RusNet Server detected\n";
             rusnetAuth = true;
@@ -305,6 +350,14 @@ private:
                 std::cout << "[+] Joining channel " << client.channels[i] << '\n';
                 sendToServer(joinMessage);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+        }
+
+        if (ircmsg.command == "353")
+        {
+            if (ircmsg.params[1] == client.nickname)
+            {
+                std::cout << "[+] Channel " << ircmsg.params[2] << " joined\n";
             }
         }
 
@@ -378,6 +431,9 @@ private:
                             }
                             std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
                             std::string reply = "";
+                            std::string action = "PRIVMSG " + target + " :\x01" + "ACTION Going down...\x01\r\n";
+                            sendToServer(action);
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
                             if (!reason.empty())
                             {
                                 reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
@@ -399,7 +455,7 @@ private:
 
             if (text.substr(0, 4) == ".ip ")
             {
-                std::cout << "[DEBUG] Command .ip received by " << ircmsg.prefix.nick << ":" << text << '\n';
+                std::cout << "[i] Command .ip received by " << ircmsg.prefix.nick << ":" << text << '\n';
                 std::vector<std::string> parts = splitStringBySpaces(text.substr(4));
                 std::string target("");
                 if (ircmsg.params[0].find("#") != std::string::npos)
@@ -426,6 +482,7 @@ private:
                     {
                         std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
                         sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
+                        std::cout << "[i] Help message sent to " << ircmsg.prefix.nick << '\n';
                     }
                     else
                     {

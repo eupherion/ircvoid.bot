@@ -83,6 +83,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         // [botComset]
         auto botComset = table->get_table("botComset");
         feature_.ip_info_token = *botComset->get_as<std::string>("ipInfToken");
+        feature_.debug_mode = *botComset->get_as<bool>("debugMode");
     }
     catch (const cpptoml::parse_exception &e)
     {
@@ -126,4 +127,5 @@ void IRCConfig::print() const
 
     std::cout << "[Bot Features]\n";
     std::cout << "IP Info Token: " << feature_.ip_info_token << "\n";
+    std::cout << "Debug Mode: " << (feature_.debug_mode ? "true" : "false") << "\n\n";
 }

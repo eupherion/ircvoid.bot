@@ -4,3 +4,4 @@
 4. Класс команд (функция передаёт команду в класс)
 5. Класс событий (какие события? что передавать? parseEvent() в основном цикле?)
 6. [done] Обработка CTCP VERSION ( obsidian://open?vault=docs.code&file=irc.bot.cxx%2Fbst.09.ctcp )
+7. Метод класса bool IRCBot::isAdmin(ircmsg.prefix.nick)

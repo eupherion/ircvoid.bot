@@ -34,6 +34,7 @@ public:
     struct Feature
     {
         std::string ip_info_token; // Токен для ipinfo.io
+        bool debug_mode; // Режим отладки
     };
 
     explicit IRCConfig(const std::string &filename);

@@ -191,7 +191,7 @@ private:
 
     IRCMessage ircmsg;
 
-    void handleConnect(const boost::system::error_code &error /*, std::string nick, std::string ser*/)
+    void handleConnect(const boost::system::error_code &error)
     {
         const auto &server = config_.get_server();
         const auto &client = config_.get_client();
@@ -331,12 +331,12 @@ private:
                 std::string ns_auth = "";
                 if (rusnetAuth)
                 {
-                    std::cout << "[DEBUG] RusNet reply formed\n";
+                    std::cout << "[i] RusNet NickServ reply generated\n";
                     ns_auth = "NICKSERV IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 else
                 {
-                    std::cout << "[DEBUG] Normal reply formed\n";
+                    std::cout << "[i] Normal NickServ reply formed\n";
                     ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 sendToServer(ns_auth);
@@ -365,18 +365,26 @@ private:
         if (ircmsg.command == "PRIVMSG")
         {
             std::string channel = ircmsg.params[0];
-            std::string text = ircmsg.trailing;
-            for (size_t i = 0; i < ircmsg.params.size(); ++i)
+            std::string msgtext = ircmsg.trailing;
+            if (feature.debug_mode)
             {
-                std::cout << "[DEBUG]: ircmsg.param " << i << ": " << ircmsg.params[i] << std::endl;
+                std::cout << "[DEBUG]: ircmsg.prefix: " << ircmsg.prefix.nick << "!" << ircmsg.prefix.ident << "@" << ircmsg.prefix.host << std::endl;
+                std::cout << "[DEBUG]: ircmsg.command: " << ircmsg.command << std::endl;
+                for (size_t i = 0; i < ircmsg.params.size(); ++i)
+                {
+                    std::cout << "[DEBUG]: ircmsg.param[" << i << "]: " << ircmsg.params[i] << std::endl;
+                }
+                if (!ircmsg.trailing.empty())
+                {
+                    std::cout << "[DEBUG]: ircmsg.trailing: " << ircmsg.trailing << std::endl;
+                }
             }
-
             std::cout << "[MESSAGE] From " << ircmsg.prefix.nick
                       << " on " << channel
-                      << ": " << text << std::endl;
+                      << ": " << msgtext << std::endl;
 
             // Пример реакции на "hello bot"
-            if (text == ".hi")
+            if (msgtext == ".hi")
             {
                 std::string target("");
                 if (ircmsg.params[0].find("#") != std::string::npos)
@@ -388,14 +396,14 @@ private:
                     target = ircmsg.prefix.nick;
                 }
                 if (target.empty()) {
-                    std::cout << "[DEBUG] Target is empty\n";
+                    std::cout << "[ERR] Target is empty\n";
                     return; // Пропускаем, если target пуст
                 }
                 for (size_t i = 0; i < client.admins.size(); i++)
                 {
                     if (client.admins[i] == ircmsg.prefix.nick)
                     {
-                        std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                        std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
                         std::string reply = "PRIVMSG " + target + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
                         sendToServer(reply);
                         break;
@@ -403,19 +411,20 @@ private:
                 }
             }
 
-            if (text.size() >= 4 && text.substr(0, 4) == ".bye")
+            if (msgtext.size() >= 4 && msgtext.substr(0, 4) == ".bye")
             {
                 if (client.admins.empty())
                 {
-                    std::cout << "[DEBUG] Admins list is empty\n";
+                    std::cout << "[ERR] Admins list is empty\n";
                     return; // Пропускаем, если admins пуст
                 }
                 else
                 {
                     std::string target("");
                     std::string reason = "";
-                    if (text.size() > 4) {
-                        reason = text.substr(5);
+                    if (msgtext.size() > 4)
+                    {
+                        reason = msgtext.substr(5);
                     }
                     for (size_t i = 0; i < client.admins.size(); i++)
                     {
@@ -429,7 +438,7 @@ private:
                             {
                                 target = ircmsg.prefix.nick;
                             }
-                            std::cout << "[DEBUG] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                            std::cout << "[i] Admin " << ircmsg.prefix.nick << " is in admins list\n";
                             std::string reply = "";
                             std::string action = "PRIVMSG " + target + " :\x01" + "ACTION Going down...\x01\r\n";
                             sendToServer(action);
@@ -451,12 +460,11 @@ private:
                     }
                 }
             }
-        
 
-            if (text.substr(0, 4) == ".ip ")
+            if (msgtext.substr(0, 4) == ".ip ")
             {
-                std::cout << "[i] Command .ip received by " << ircmsg.prefix.nick << ":" << text << '\n';
-                std::vector<std::string> parts = splitStringBySpaces(text.substr(4));
+                std::cout << "[i] Command .ip received by " << ircmsg.prefix.nick << ":" << msgtext << '\n';
+                std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
                 std::string target("");
                 if (ircmsg.params[0].find("#") != std::string::npos)
                 {
@@ -468,13 +476,17 @@ private:
                 }
                 if (target.empty())
                 {
-                    std::cout << "[DEBUG] Target is empty\n";
+                    std::cout << "[ERR] Target is empty\n";
                     return; // Пропускаем, если target пуст
                 }
-                for (size_t i = 0; i < parts.size(); i++)
+                if (feature.debug_mode)
                 {
-                    std::cout << "[DEBUG] Part " << i << ": " << parts[i] << '\n';
+                    for (size_t i = 0; i < parts.size(); i++)
+                    {
+                        std::cout << "[DEBUG] Command part " << i << ": " << parts[i] << '\n';
+                    }
                 }
+
 
                 if (parts.size() == 1)
                 {

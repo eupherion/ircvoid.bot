@@ -2,6 +2,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <iostream>
+#include <filesystem>
 #include <string>
 #include <vector>
 #include <thread>   // Для std::this_thread::sleep_for
@@ -27,6 +28,60 @@ public:
 
         boost::asio::async_connect(socket_, endpoints,
                                    boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1 /* , client.nickname, server.password */));
+    }
+
+    void logWrite(const std::string &message)
+    {
+        try {
+            if (!std::filesystem::exists("./log"))
+            {
+                std::filesystem::create_directory("./log");
+            }
+
+            auto now = std::chrono::system_clock::now();
+            std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+            std::tm *tm = std::localtime(&now_c);
+
+            std::ostringstream time_stream;
+            time_stream << std::put_time(tm, "[%Y-%m-%d %H:%M:%S] ");
+            std::string tstamp_message = time_stream.str() + message;
+
+            std::ofstream log_file("./log/irc.log", std::ios_base::app);
+            if (log_file.is_open())
+            {
+                log_file << tstamp_message << std::endl;
+                if (log_file.bad())
+                {
+                    if (log_file.fail())
+                    {
+                        std::cerr << "[ERR] Error writing to log file (bad)." << std::endl;
+                    }
+                }
+                if (log_file.good())
+                {
+                    if (log_file.fail())
+                    {
+                        std::cerr << "[ERR] Error writing to log file (fail)." << std::endl;
+                    }
+                }
+                if (log_file.eof())
+                {
+                    if (log_file.fail())
+                    {
+                        std::cerr << "[ERR] Error writing to log file (eof)." << std::endl;
+                    }
+                }
+                log_file.close();
+            }
+            else
+            {
+                std::cerr << "[ERR] Error opening log file for writing." << std::endl;
+            }
+        }
+        catch (const std::exception &ex)
+        {
+            std::cerr << "[ERR] Error writing to log file: " << ex.what() << std::endl;
+        }
     }
 
     void shutdown(void)
@@ -197,7 +252,9 @@ private:
         const auto &client = config_.get_client();
         if (!error)
         {
-            std::cout << "[+] Connected to server!" << std::endl;
+            std::string logstr = "[+] Connected to " + server.host + ":" + std::to_string(server.port) + "\n";
+            std::cout << logstr;
+            logWrite(logstr);
             std::string message("");
             if (!server.password.empty())
             {
@@ -296,7 +353,9 @@ private:
                 {
                     std::string ctcpReply = "NOTICE " + target + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::cout << "[+] Sent CTCP VERSION to " << target << '\n';
+                    std::string logstr = "[+] Sent CTCP VERSION to " + target + "\n";
+                    logWrite(logstr);
+                    std::cout << logstr;
                 }
             }
 
@@ -311,7 +370,9 @@ private:
                 {
                     std::string ctcpReply = "NOTICE " + target + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::cout << "[+] Sent CTCP PING to " << target << '\n';
+                    std::string logstr = "[+] Sent CTCP PING to " + target + "\n";
+                    logWrite(logstr);
+                    std::cout << logstr;
                 }
             }
         }
@@ -364,7 +425,7 @@ private:
         // Пример реакции на PRIVMSG
         if (ircmsg.command == "PRIVMSG")
         {
-            std::string channel = ircmsg.params[0];
+            std::string mtarget = ircmsg.params[0];
             std::string msgtext = ircmsg.trailing;
             if (feature.debug_mode)
             {
@@ -380,7 +441,7 @@ private:
                 }
             }
             std::cout << "[MESSAGE] From " << ircmsg.prefix.nick
-                      << " on " << channel
+                      << " to " << mtarget
                       << ": " << msgtext << std::endl;
 
             // Пример реакции на "hello bot"
@@ -463,7 +524,9 @@ private:
 
             if (msgtext.substr(0, 4) == ".ip ")
             {
-                std::cout << "[i] Command .ip received by " << ircmsg.prefix.nick << ":" << msgtext << '\n';
+                std:: string logstr = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext + '\n';
+                logWrite(logstr);
+                std::cout << logstr;
                 std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
                 std::string target("");
                 if (ircmsg.params[0].find("#") != std::string::npos)
@@ -494,7 +557,9 @@ private:
                     {
                         std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
                         sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
-                        std::cout << "[i] Help message sent to " << ircmsg.prefix.nick << '\n';
+                        std::string logstr = "[i] Help message sent to " + ircmsg.prefix.nick + '\n';
+                        logWrite(logstr);
+                        std::cout << logstr;
                     }
                     else
                     {
@@ -503,8 +568,10 @@ private:
                         if (infoVect.size() == 1)
                         {
                             std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
+                            std::string logstr = "[i] Bot reply: " + botReply + '\n';
                             std::cout << "Bot reply: " << botReply << '\n';
                             sendToServer("PRIVMSG " + target + " :" + botReply + "\r\n");
+                            logWrite(logstr);
                         }
                         else if (infoVect.size() > 1)
                         {
@@ -519,6 +586,7 @@ private:
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
                                 sendToServer("PRIVMSG " + target + " :" + packedIpAddr[i] + "\r\n");
+                                logWrite("[i] Sent packed IPs to " + target + '\n');
                             }
                         }
                     }

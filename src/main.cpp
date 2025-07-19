@@ -252,8 +252,8 @@ private:
         const auto &client = config_.get_client();
         if (!error)
         {
-            std::string logstr = "[+] Connected to " + server.host + ":" + std::to_string(server.port) + "\n";
-            std::cout << logstr;
+            std::string logstr = "[+] Connected to " + server.host + ":" + std::to_string(server.port);
+            std::cout << logstr + "\n";
             logWrite(logstr);
             std::string message("");
             if (!server.password.empty())
@@ -353,9 +353,9 @@ private:
                 {
                     std::string ctcpReply = "NOTICE " + target + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::string logstr = "[+] Sent CTCP VERSION to " + target + "\n";
+                    std::string logstr = "[+] Sent CTCP VERSION to " + target;  
+                    std::cout << logstr + "\n";
                     logWrite(logstr);
-                    std::cout << logstr;
                 }
             }
 
@@ -370,9 +370,33 @@ private:
                 {
                     std::string ctcpReply = "NOTICE " + target + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::string logstr = "[+] Sent CTCP PING to " + target + "\n";
+                    std::string logstr = "[+] Sent CTCP PING to " + target;
+                    std::cout << logstr + "\n";
                     logWrite(logstr);
-                    std::cout << logstr;
+                }
+            }
+
+            if (ctcpCommand.find("TIME") != std::string::npos)
+            {
+                if (target.empty())
+                {
+                    std::cout << "[DEBUG] Target is empty\n";
+                    return; // Пропускаем, если target пуст
+                }
+                else
+                {
+                    // Получаем текущее время
+                    auto now = std::chrono::system_clock::now();
+                    auto timestamp = std::chrono::system_clock::to_time_t(now);
+
+                    // Преобразуем время в строку
+                    std::string ctcpReply = "NOTICE " + target + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n";
+                    sendToServer(ctcpReply);
+
+                    // Логирование
+                    std::string logstr = "[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick;                 
+                    std::cout << logstr + "\n";
+                    logWrite(logstr);
                 }
             }
         }
@@ -401,24 +425,31 @@ private:
                     ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 sendToServer(ns_auth);
-                std::cout << "[+] Sent NICKSERV AUTH\n";
+                std::string logstr = "[+] Sent NICKSERV AUTH";
+                if (rusnetAuth) {logstr += " (RusNet)";}
+                std::cout << logstr << "\n";
+                logWrite(logstr);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
 
             for (size_t i = 0; i < client.channels.size(); i++)
             {
                 std::string joinMessage = "JOIN " + client.channels[i] + "\r\n";
-                std::cout << "[+] Joining channel " << client.channels[i] << '\n';
                 sendToServer(joinMessage);
+                std::string logstr = "[+] Joining channel " + client.channels[i];
+                std::cout << logstr << "\n";
+                logWrite(logstr);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }
         }
 
         if (ircmsg.command == "353")
         {
-            if (ircmsg.params[1] == client.nickname)
+            if (ircmsg.params[0] == client.nickname)
             {
-                std::cout << "[+] Channel " << ircmsg.params[2] << " joined\n";
+                std::string logstr = "[+] Channel " + ircmsg.params[2] + " joined";
+                std::cout << logstr << "\n";
+                logWrite(logstr);
             }
         }
 
@@ -524,9 +555,9 @@ private:
 
             if (msgtext.substr(0, 4) == ".ip ")
             {
-                std:: string logstr = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext + '\n';
+                std:: string logstr = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext;
+                std::cout << logstr + '\n';
                 logWrite(logstr);
-                std::cout << logstr;
                 std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
                 std::string target("");
                 if (ircmsg.params[0].find("#") != std::string::npos)
@@ -557,9 +588,9 @@ private:
                     {
                         std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
                         sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
-                        std::string logstr = "[i] Help message sent to " + ircmsg.prefix.nick + '\n';
+                        std::string logstr = "[i] Help message sent to " + ircmsg.prefix.nick;                    
+                        std::cout << logstr + '\n';
                         logWrite(logstr);
-                        std::cout << logstr;
                     }
                     else
                     {
@@ -568,9 +599,9 @@ private:
                         if (infoVect.size() == 1)
                         {
                             std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
-                            std::string logstr = "[i] Bot reply: " + botReply + '\n';
-                            std::cout << "Bot reply: " << botReply << '\n';
                             sendToServer("PRIVMSG " + target + " :" + botReply + "\r\n");
+                            std::string logstr = "[i] Bot reply: " + botReply;
+                            std::cout << "Bot reply: " << botReply << '\n';
                             logWrite(logstr);
                         }
                         else if (infoVect.size() > 1)
@@ -586,7 +617,7 @@ private:
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
                                 sendToServer("PRIVMSG " + target + " :" + packedIpAddr[i] + "\r\n");
-                                logWrite("[i] Sent packed IPs to " + target + '\n');
+                                logWrite("[i] Sent packed IPs to " + target);
                             }
                         }
                     }

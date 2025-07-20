@@ -8,3 +8,4 @@
 8. [done] logfile - filename in config + logrotate
 9. [done] Подтверждение захода на канал в Rusnet [main.cpp:448]
 10. Обработка 433 "Nickname already in use"
+11. Рефакторинг!

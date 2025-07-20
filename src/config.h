@@ -35,6 +35,7 @@ public:
     {
         std::string ip_info_token; // Токен для ipinfo.io
         bool debug_mode; // Режим отладки
+        std::string log_file; // Имя файла лога в директории ./log
     };
 
     explicit IRCConfig(const std::string &filename);

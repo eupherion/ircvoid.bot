@@ -32,55 +32,71 @@ public:
 
     void logWrite(const std::string &message)
     {
-        try {
-            if (!std::filesystem::exists("./log"))
+        auto feature = config_.get_feature();
+        const std::string logDir = "./log";
+        const std::string logFilePath = logDir + "/" + feature.log_file;
+
+        try
+        {
+            // Создание директории, если её нет
+            if (!std::filesystem::exists(logDir))
             {
-                std::filesystem::create_directory("./log");
+                std::filesystem::create_directory(logDir);
             }
 
+            // Проверяем размер файла
+            std::ifstream checkFile(logFilePath, std::ios::binary | std::ios::ate);
+            if (checkFile.is_open())
+            {
+                std::streamsize size = checkFile.tellg();
+                checkFile.close();
+
+                const std::streamsize max_size = 50 * 1024; // 50 КБ
+                if (size >= max_size)
+                {
+                    // Формируем временную метку для имени
+                    auto now = std::chrono::system_clock::now();
+                    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                    std::tm tm = *std::localtime(&now_c);
+
+                    std::ostringstream timestamp;
+                    timestamp << std::put_time(&tm, "%Y-%m-%d-%H%M%S"); // 2025-04-05-123456
+                    std::string newFileName = logDir + "/" + timestamp.str() + "." + feature.log_file;
+
+                    // Переименовываем старый лог-файл
+                    std::filesystem::rename(logFilePath, newFileName);
+                }
+            }
+
+            // Добавляем временную метку к сообщению
             auto now = std::chrono::system_clock::now();
             std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-            std::tm *tm = std::localtime(&now_c);
+            std::tm tm = *std::localtime(&now_c);
 
             std::ostringstream time_stream;
-            time_stream << std::put_time(tm, "[%Y-%m-%d %H:%M:%S] ");
+            time_stream << std::put_time(&tm, "[%Y-%m-%d %H:%M:%S] ");
             std::string tstamp_message = time_stream.str() + message;
 
-            std::ofstream log_file("./log/irc.log", std::ios_base::app);
+            // Открываем файл для добавления
+            std::ofstream log_file(logFilePath, std::ios_base::app);
             if (log_file.is_open())
             {
                 log_file << tstamp_message << std::endl;
-                if (log_file.bad())
-                {
-                    if (log_file.fail())
-                    {
-                        std::cerr << "[ERR] Error writing to log file (bad)." << std::endl;
-                    }
-                }
-                if (log_file.good())
-                {
-                    if (log_file.fail())
-                    {
-                        std::cerr << "[ERR] Error writing to log file (fail)." << std::endl;
-                    }
-                }
-                if (log_file.eof())
-                {
-                    if (log_file.fail())
-                    {
-                        std::cerr << "[ERR] Error writing to log file (eof)." << std::endl;
-                    }
-                }
                 log_file.close();
+
+                if (log_file.fail())
+                {
+                    std::cerr << "[ERR] Failed to write to log file." << std::endl;
+                }
             }
             else
             {
-                std::cerr << "[ERR] Error opening log file for writing." << std::endl;
+                std::cerr << "[ERR] Could not open log file for writing." << std::endl;
             }
         }
         catch (const std::exception &ex)
         {
-            std::cerr << "[ERR] Error writing to log file: " << ex.what() << std::endl;
+            std::cerr << "[ERR] Exception in logWrite(): " << ex.what() << std::endl;
         }
     }
 
@@ -625,7 +641,9 @@ private:
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
                                 sendToServer("PRIVMSG " + target + " :" + packedIpAddr[i] + "\r\n");
-                                logWrite("[i] Sent packed IPs to " + target);
+                                std::string logstr = "[i] Sent packed IPs to " + target;
+                                std::cout << logstr << '\n';
+                                logWrite(logstr);
                             }
                         }
                     }

@@ -349,6 +349,9 @@ private:
         if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
         {
             std::string ctcpCommand = ircmsg.trailing.substr(1, ircmsg.trailing.size() - 2);
+            std::string gotCtcpMsg = "[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick;
+            std::cout << gotCtcpMsg + "\n";
+            logWrite(gotCtcpMsg);
             std::string target = "";
             if (ircmsg.params[0].find("#") != std::string::npos)
             {
@@ -370,7 +373,7 @@ private:
                 {
                     std::string ctcpReply = "NOTICE " + target + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::string logstr = "[+] Sent CTCP VERSION to " + target;  
+                    std::string logstr = "[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + target;
                     std::cout << logstr + "\n";
                     logWrite(logstr);
                 }

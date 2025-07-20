@@ -3,20 +3,22 @@
 [ircServer]	# Параметры IRC сервера
 ircServerHost = "irc.rizon.net"   # Адрес сервера IRC
 ircServerPort = 7000              # Порт сервера IRC
-ircServerPass = ""                # Пароль сервера (в основном для ZNC)
+ircServerPass = ""                # Пароль сервера (ZNC и сервера с паролем)
 
 [ircClient] # Параметры IRC клиента
 ircBotUser = "cbot"               # Имя пользователя бота
 ircBotNick = "CxxBot"             # Основной ник бота
-ircBotNalt = ["CxxBot_", "CBot1"] # Альтернативные ники
-ircBotRnam = "C++ IRC Bot"        # Реальное имя (RealName)
+ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
+ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны)
-ircBotChan = ["#test", "#ircx"]   # Каналы, к которым присоединяется бот
-ircBotAdmi = ["const", "aesh"]    # Ники администраторов бота
+ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот
+ircBotAdmi = "const, aesh"        # Ники администраторов бота
 ircBotAcon = false                # Флаг автозапуска (true/false)
 ircBotCsym = "."                  # Символ команды бота
 ircBotRcon = ""                   # Сообщения серверу при соединении
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-ipInfToken = "xxxxxxxxxxxxx"      # Токен сервиса ipinfo.io
+ipInfToken = "xxxxxxxxxxxxxx"	  # Токен сервиса ipinfo.io
+debugMode = false                 # Флаг отладочного режима
+logFileName = "ircbot.log"        # Имя лог-файла бота в директории ./log

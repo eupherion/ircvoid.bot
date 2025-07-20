@@ -110,6 +110,7 @@ public:
             boost::system::error_code ec;
             socket_.shutdown(tcp::socket::shutdown_both, ec); // Завершение работы с сокетом
             socket_.close(ec);
+            logWrite("[i] Bot shutdown complete.\n");
         }
 
         exit(0); // Принудительный выход из программы
@@ -568,7 +569,7 @@ private:
                             sendToServer(reply);
                             std::string logstr = "[i] Shutdown message sent to " + target;
                             std::cout << logstr << "\n";
-                            logWrite(logstr + ". Stopping bot...\n");
+                            logWrite(logstr + ". Stopping bot...");
                             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                             shutdown();
                             break;

@@ -2,11 +2,13 @@
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <iostream>
+#include <algorithm>
 #include <filesystem>
 #include <string>
 #include <vector>
 #include <thread>   // Для std::this_thread::sleep_for
-#include <chrono>  // Для std::chrono::milliseconds
+#include <chrono>   // Для std::chrono::milliseconds
+#include <regex>    // Для std::regex и std::regex_match
 #include "config.h"
 #include "ipinfo.h"
 
@@ -28,6 +30,24 @@ public:
 
         boost::asio::async_connect(socket_, endpoints,
                                    boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1 /* , client.nickname, server.password */));
+    }
+
+    bool isAdmin(const std::string &nick)
+    {
+        auto config = config_.get_client();
+        for (const auto &admin : config.admins)
+        {
+            if (std::equal(admin.begin(), admin.end(),
+                           nick.begin(), nick.end(),
+                           [](char a, char b)
+                           {
+                               return std::tolower(a) == std::tolower(b);
+                           }))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void logWrite(const std::string &message)
@@ -338,6 +358,15 @@ private:
 
         // Теперь весь парсинг происходит через IRCMessage
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
+        std::string msg_target = "";
+        if (ircmsg.params[0].find("#") != std::string::npos)
+        {
+            msg_target = ircmsg.params[0];
+        }
+        else
+        {
+            msg_target = ircmsg.prefix.nick;
+        }
 
         // Пример: обработка PING
         if (ircmsg.command == "PING")
@@ -478,6 +507,16 @@ private:
             }
         }
 
+        if (ircmsg.command == "PART")
+        {
+            if (ircmsg.prefix.nick == client.nickname)
+            {
+                std::string logstr = "[-] Channel " + ircmsg.params[0] + " left";
+                std::cout << logstr << "\n";
+                logWrite(logstr);
+            }
+        }
+
         // Пример реакции на PRIVMSG
         if (ircmsg.command == "PRIVMSG")
         {
@@ -528,7 +567,7 @@ private:
                 }
             }
 
-            if (msgtext.size() >= 4 && msgtext.substr(0, 4) == ".bye")
+            if (msgtext.size() >= 5 && msgtext.substr(0, 5) == ".quit")
             {
                 if (client.admins.empty())
                 {
@@ -578,6 +617,62 @@ private:
                             break;
                         }
                     }
+                }
+            }
+
+            if (msgtext.substr(0, 6) == ".join ")
+            {
+                if (isAdmin(ircmsg.prefix.nick))
+                {
+                    std::string join_arg = "";
+                    if (msgtext.size() > 6)
+                    {
+                        join_arg = extractChan(msgtext.substr(6));
+                        if (!join_arg.empty())
+                        {
+                            sendToServer("JOIN " + join_arg + "\r\n");
+                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION joins " + join_arg + "\x01\r\n");
+                            std::cout << "[i] Joining channel " << join_arg << "\n";
+                            logWrite("[i] Joining channel " + join_arg + " by " + ircmsg.prefix.nick);
+                        }
+                    }
+                }
+                else
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :You are not an admin!\r\n");
+                }
+            }
+
+            if (msgtext.substr(0, 5) == ".part")
+            {
+                if (isAdmin(ircmsg.prefix.nick))
+                {
+                    std::string part_arg = "";
+                    if (msgtext.size() > 6)
+                    {
+                        part_arg = extractChan(msgtext.substr(6));
+                        if (!part_arg.empty())
+                        {
+                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
+                            sendToServer("PART " + part_arg + "\r\n");
+                            std::cout << "[i] Parting channel " << part_arg << "\n";
+                            logWrite("[i] Parting channel " + part_arg + " by " + ircmsg.prefix.nick);
+                        }
+                    }
+                    else
+                    {
+                        if (msg_target.find("#") != std::string::npos)
+                        {
+                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION parts " + msg_target + "\x01\r\n");
+                            sendToServer("PART " + msg_target + "\r\n");
+                            std::cout << "[i] Parting channel " << msg_target << "\n";
+                            logWrite("[i] Parting channel " + msg_target + " by " + ircmsg.prefix.nick);
+                        }
+                    }
+                }
+                else
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :You are not an admin!\r\n");
                 }
             }
 
@@ -707,6 +802,22 @@ std::vector<std::string> pack_strings(const std::vector<std::string> &input, siz
 
     return result;
 }
+
+// Функция извлекает канал, если он начинается с '#' и содержит допустимые символы
+std::string extractChan(const std::string& msgtext) {
+    std::string trimmed = boost::algorithm::trim_copy(msgtext);
+
+    // Проверяем, что строка начинается с '#' и содержит допустимые символы
+    std::regex channelRegex("^#([a-zA-Z0-9_\\-\\[\\]\\{\\}<>]+)$");
+    std::smatch match;
+
+    if (std::regex_match(trimmed, match, channelRegex)) {
+        return match[0].str(); // валидный канал
+    }
+
+    return ""; // невалидный формат канала
+}
+
 
 int main(int argc, char *argv[])
 {

@@ -32,3 +32,4 @@ bool customIpSort(const std::string &a, const std::string &b);
 
 std::vector<std::string> splitStringBySpaces(const std::string &input);
 std::vector<std::string> pack_strings(const std::vector<std::string> &input, size_t max_length);
+std::string extractChan(const std::string& msgtext);

@@ -6,3 +6,4 @@
 6. [done] Обработка CTCP VERSION ( obsidian://open?vault=docs.code&file=irc.bot.cxx%2Fbst.09.ctcp )
 7. Метод класса bool IRCBot::isAdmin(ircmsg.prefix.nick)
 8. logfile - filename in config
+9. Подтверждение захода на канал в Rusnet [main.cpp:448]

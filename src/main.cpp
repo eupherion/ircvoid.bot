@@ -445,7 +445,7 @@ private:
 
         if (ircmsg.command == "353")
         {
-            if (ircmsg.params[0] == client.nickname)
+            if (ircmsg.params[0] == client.nickname) // в RusNet nick == nick!
             {
                 std::string logstr = "[+] Channel " + ircmsg.params[2] + " joined";
                 std::cout << logstr << "\n";

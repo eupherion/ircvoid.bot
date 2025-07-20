@@ -405,6 +405,11 @@ private:
         {
             std::cout << "[+] " << ircmsg.trailing << '\n';
             std::cout << "[+] RusNet Server detected\n";
+
+            std::string setmode = "MODE " + client.nickname + " +ix\r\n";
+            sendToServer(setmode);
+            std::cout << "[+] Set MODE +ix for " << client.nickname << '\n';
+            logWrite("[+] " + setmode);
             rusnetAuth = true;
         }
 

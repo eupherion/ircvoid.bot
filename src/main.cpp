@@ -545,6 +545,9 @@ private:
                             }
 
                             sendToServer(reply);
+                            std::string logstr = "[i] Shutdown message sent to " + target;
+                            std::cout << logstr << "\n";
+                            logWrite(logstr + ". Stopping bot...\n");
                             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                             shutdown();
                             break;

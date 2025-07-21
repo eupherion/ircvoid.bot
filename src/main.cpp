@@ -289,9 +289,9 @@ private:
         const auto &client = config_.get_client();
         if (!error)
         {
-            std::string logstr = "[+] Connected to " + server.host + ":" + std::to_string(server.port);
-            std::cout << logstr + "\n";
-            logWrite(logstr);
+            std::string logentry = "[+] Connected to " + server.host + ":" + std::to_string(server.port);
+            std::cout << logentry + "\n";
+            logWrite(logentry);
             std::string message("");
             if (!server.password.empty())
             {
@@ -358,14 +358,15 @@ private:
 
         // Теперь весь парсинг происходит через IRCMessage
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
-        std::string msg_target = "";
+        std::string replydest = "";
+
         if (ircmsg.params[0].find("#") != std::string::npos)
         {
-            msg_target = ircmsg.params[0];
+            replydest = ircmsg.params[0];
         }
         else
         {
-            msg_target = ircmsg.prefix.nick;
+            replydest = ircmsg.prefix.nick;
         }
 
         // Пример: обработка PING
@@ -381,56 +382,47 @@ private:
             std::string gotCtcpMsg = "[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick;
             std::cout << gotCtcpMsg + "\n";
             logWrite(gotCtcpMsg);
-            std::string target = "";
-            if (ircmsg.params[0].find("#") != std::string::npos)
-            {
-                target = ircmsg.params[0];
-            }
-            else
-            {
-                target = ircmsg.prefix.nick;
-            }
 
             if (ctcpCommand.find("VERSION") != std::string::npos)
             {
-                if (target.empty())
+                if (replydest.empty())
                 {
                     std::cout << "[DEBUG] Target is empty\n";
                     return; // Пропускаем, если target пуст
                 }
                 else
                 {
-                    std::string ctcpReply = "NOTICE " + target + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
+                    std::string ctcpReply = "NOTICE " + replydest + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::string logstr = "[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + target;
-                    std::cout << logstr + "\n";
-                    logWrite(logstr);
+                    std::string logentry = "[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + replydest;
+                    std::cout << logentry + "\n";
+                    logWrite(logentry);
                 }
             }
 
             if (ctcpCommand.find("PING") != std::string::npos)
             {
-                if (target.empty())
+                if (replydest.empty())
                 {
-                    std::cout << "[DEBUG] Target is empty\n";
-                    return; // Пропускаем, если target пуст
+                    std::cout << "[DEBUG] Reply destination is empty\n";
+                    return; // Пропускаем, если reply destination пуст
                 }
                 else
                 {
-                    std::string ctcpReply = "NOTICE " + target + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
+                    std::string ctcpReply = "NOTICE " + replydest + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
                     sendToServer(ctcpReply);
-                    std::string logstr = "[+] Sent CTCP PING to " + target;
-                    std::cout << logstr + "\n";
-                    logWrite(logstr);
+                    std::string logentry = "[+] Sent CTCP PING to " + replydest;
+                    std::cout << logentry + "\n";
+                    logWrite(logentry);
                 }
             }
 
             if (ctcpCommand.find("TIME") != std::string::npos)
             {
-                if (target.empty())
+                if (replydest.empty())
                 {
-                    std::cout << "[DEBUG] Target is empty\n";
-                    return; // Пропускаем, если target пуст
+                    std::cout << "[DEBUG] Reply destination is empty\n";
+                    return; // Пропускаем, если reply destination пуст
                 }
                 else
                 {
@@ -439,13 +431,13 @@ private:
                     auto timestamp = std::chrono::system_clock::to_time_t(now);
 
                     // Преобразуем время в строку
-                    std::string ctcpReply = "NOTICE " + target + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n";
+                    std::string ctcpReply = "NOTICE " + replydest + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n";
                     sendToServer(ctcpReply);
 
                     // Логирование
-                    std::string logstr = "[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick;                 
-                    std::cout << logstr + "\n";
-                    logWrite(logstr);
+                    std::string logentry = "[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick;                 
+                    std::cout << logentry + "\n";
+                    logWrite(logentry);
                 }
             }
         }
@@ -479,10 +471,10 @@ private:
                     ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 sendToServer(ns_auth);
-                std::string logstr = "[+] Sent NICKSERV AUTH";
-                if (rusnetAuth) {logstr += " (RusNet)";}
-                std::cout << logstr << "\n";
-                logWrite(logstr);
+                std::string logentry = "[+] Sent NICKSERV AUTH";
+                if (rusnetAuth) {logentry += " (RusNet)";}
+                std::cout << logentry << "\n";
+                logWrite(logentry);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
 
@@ -490,9 +482,9 @@ private:
             {
                 std::string joinMessage = "JOIN " + client.channels[i] + "\r\n";
                 sendToServer(joinMessage);
-                std::string logstr = "[+] Joining channel " + client.channels[i];
-                std::cout << logstr << "\n";
-                logWrite(logstr);
+                std::string logentry = "[i] Joining channel " + client.channels[i];
+                std::cout << logentry << "\n";
+                logWrite(logentry);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }
         }
@@ -501,9 +493,9 @@ private:
         {
             if (ircmsg.params[0] == client.nickname) // в RusNet nick == nick!
             {
-                std::string logstr = "[+] Channel " + ircmsg.params[2] + " joined";
-                std::cout << logstr << "\n";
-                logWrite(logstr);
+                std::string logentry = "[+] Channel " + ircmsg.params[2] + " joined";
+                std::cout << logentry << "\n";
+                logWrite(logentry);
             }
         }
 
@@ -511,9 +503,9 @@ private:
         {
             if (ircmsg.prefix.nick == client.nickname)
             {
-                std::string logstr = "[-] Channel " + ircmsg.params[0] + " left";
-                std::cout << logstr << "\n";
-                logWrite(logstr);
+                std::string logentry = "[-] Channel " + ircmsg.params[0] + " left";
+                std::cout << logentry << "\n";
+                logWrite(logentry);
             }
         }
 
@@ -545,7 +537,7 @@ private:
                 if (isAdmin(ircmsg.prefix.nick))
                 {
                     std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
-                    std::string reply = "PRIVMSG " + msg_target + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
+                    std::string reply = "PRIVMSG " + replydest + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
                     sendToServer(reply);
                 }
             }
@@ -568,23 +560,23 @@ private:
                     {
                         std::cout << "[i] Admin " << ircmsg.prefix.nick << " is in admins list\n";
                         std::string reply = "";
-                        std::string action = "PRIVMSG " + msg_target + " :\x01" + "ACTION Going down...\x01\r\n";
+                        std::string action = "PRIVMSG " + replydest + " :\x01" + "ACTION Going down...\x01\r\n";
                         sendToServer(action);
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
                         if (!reason.empty())
                         {
-                            reply = "PRIVMSG " + msg_target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
+                            reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
                         }
                         else
                         {
-                            reply = "PRIVMSG " + msg_target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+                            reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
                         }
 
                         sendToServer(reply);
-                        std::string logstr = "[i] Shutdown message sent to " + msg_target;
-                        std::cout << logstr << "\n";
-                        logWrite(logstr + ". Stopping bot...");
+                        std::string logentry = "[i] Shutdown message sent to " + replydest;
+                        std::cout << logentry << "\n";
+                        logWrite(logentry + ". Stopping bot...");
                         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                         shutdown();
                     }
@@ -602,7 +594,7 @@ private:
                         if (!join_arg.empty())
                         {
                             sendToServer("JOIN " + join_arg + "\r\n");
-                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION joins " + join_arg + "\x01\r\n");
+                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + join_arg + "\x01\r\n");
                             std::cout << "[i] Joining channel " << join_arg << "\n";
                             logWrite("[i] Joining channel " + join_arg + " by " + ircmsg.prefix.nick);
                         }
@@ -624,7 +616,7 @@ private:
                         part_arg = extractChan(msgtext.substr(6));
                         if (!part_arg.empty())
                         {
-                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
+                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
                             sendToServer("PART " + part_arg + "\r\n");
                             std::cout << "[i] Parting channel " << part_arg << "\n";
                             logWrite("[i] Parting channel " + part_arg + " by " + ircmsg.prefix.nick);
@@ -632,12 +624,12 @@ private:
                     }
                     else
                     {
-                        if (msg_target.find("#") != std::string::npos)
+                        if (replydest.find("#") != std::string::npos)
                         {
-                            sendToServer("PRIVMSG " + msg_target + " :\x01" + "ACTION parts " + msg_target + "\x01\r\n");
-                            sendToServer("PART " + msg_target + "\r\n");
-                            std::cout << "[i] Parting channel " << msg_target << "\n";
-                            logWrite("[i] Parting channel " + msg_target + " by " + ircmsg.prefix.nick);
+                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + replydest + "\x01\r\n");
+                            sendToServer("PART " + replydest + "\r\n");
+                            std::cout << "[i] Parting channel " << replydest << "\n";
+                            logWrite("[i] Parting channel " + replydest + " by " + ircmsg.prefix.nick);
                         }
                     }
                 }
@@ -649,24 +641,11 @@ private:
 
             if (msgtext.substr(0, 4) == ".ip ")
             {
-                std:: string logstr = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext;
-                std::cout << logstr + '\n';
-                logWrite(logstr);
+                std:: string logentry = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext;
+                std::cout << logentry + '\n';
+                logWrite(logentry);
                 std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
-                std::string target("");
-                if (ircmsg.params[0].find("#") != std::string::npos)
-                {
-                    target = ircmsg.params[0];
-                }
-                else
-                {
-                    target = ircmsg.prefix.nick;
-                }
-                if (target.empty())
-                {
-                    std::cout << "[ERR] Target is empty\n";
-                    return; // Пропускаем, если target пуст
-                }
+
                 if (feature.debug_mode)
                 {
                     for (size_t i = 0; i < parts.size(); i++)
@@ -675,16 +654,15 @@ private:
                     }
                 }
 
-
                 if (parts.size() == 1)
                 {
                     if (parts[0] == "help")
                     {
                         std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
                         sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
-                        std::string logstr = "[i] Help message sent to " + ircmsg.prefix.nick;                    
-                        std::cout << logstr + '\n';
-                        logWrite(logstr);
+                        std::string logentry = "[i] Help message sent to " + ircmsg.prefix.nick;                    
+                        std::cout << logentry + '\n';
+                        logWrite(logentry);
                     }
                     else
                     {
@@ -693,10 +671,10 @@ private:
                         if (infoVect.size() == 1)
                         {
                             std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
-                            sendToServer("PRIVMSG " + target + " :" + botReply + "\r\n");
-                            std::string logstr = "[i] Bot reply: " + botReply;
+                            sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                            std::string logentry = "[i] Bot reply: " + botReply;
                             std::cout << "Bot reply: " << botReply << '\n';
-                            logWrite(logstr);
+                            logWrite(logentry);
                         }
                         else if (infoVect.size() > 1)
                         {
@@ -710,10 +688,10 @@ private:
                             std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
-                                sendToServer("PRIVMSG " + target + " :" + packedIpAddr[i] + "\r\n");
-                                std::string logstr = "[i] Sent packed IPs to " + target;
-                                std::cout << logstr << '\n';
-                                logWrite(logstr);
+                                sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                                std::string logentry = "[i] Sent packed IPs to " + replydest;
+                                std::cout << logentry << '\n';
+                                logWrite(logentry);
                             }
                         }
                     }
@@ -785,7 +763,6 @@ std::string extractChan(const std::string& msgtext) {
     if (std::regex_match(trimmed, match, channelRegex)) {
         return match[0].str(); // валидный канал
     }
-
     return ""; // невалидный формат канала
 }
 

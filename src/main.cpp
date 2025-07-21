@@ -539,31 +539,14 @@ private:
                       << " to " << mtarget
                       << ": " << msgtext << std::endl;
 
-            // Пример реакции на "hello bot"
+            // Пример реакции на "hi"
             if (msgtext == ".hi")
             {
-                std::string target("");
-                if (ircmsg.params[0].find("#") != std::string::npos)
+                if (isAdmin(ircmsg.prefix.nick))
                 {
-                    target = ircmsg.params[0];
-                }
-                else
-                {
-                    target = ircmsg.prefix.nick;
-                }
-                if (target.empty()) {
-                    std::cout << "[ERR] Target is empty\n";
-                    return; // Пропускаем, если target пуст
-                }
-                for (size_t i = 0; i < client.admins.size(); i++)
-                {
-                    if (client.admins[i] == ircmsg.prefix.nick)
-                    {
-                        std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
-                        std::string reply = "PRIVMSG " + target + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
-                        sendToServer(reply);
-                        break;
-                    }
+                    std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
+                    std::string reply = "PRIVMSG " + msg_target + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
+                    sendToServer(reply);
                 }
             }
 
@@ -576,46 +559,34 @@ private:
                 }
                 else
                 {
-                    std::string target("");
                     std::string reason = "";
                     if (msgtext.size() > 4)
                     {
                         reason = msgtext.substr(5);
                     }
-                    for (size_t i = 0; i < client.admins.size(); i++)
+                    if (isAdmin(ircmsg.prefix.nick))
                     {
-                        if (client.admins[i] == ircmsg.prefix.nick)
-                        {
-                            if (ircmsg.params[0].find("#") != std::string::npos)
-                            {
-                                target = ircmsg.params[0];
-                            }
-                            else
-                            {
-                                target = ircmsg.prefix.nick;
-                            }
-                            std::cout << "[i] Admin " << ircmsg.prefix.nick << " is in admins list\n";
-                            std::string reply = "";
-                            std::string action = "PRIVMSG " + target + " :\x01" + "ACTION Going down...\x01\r\n";
-                            sendToServer(action);
-                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                            if (!reason.empty())
-                            {
-                                reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
-                            }
-                            else
-                            {
-                                reply = "PRIVMSG " + target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
-                            }
+                        std::cout << "[i] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                        std::string reply = "";
+                        std::string action = "PRIVMSG " + msg_target + " :\x01" + "ACTION Going down...\x01\r\n";
+                        sendToServer(action);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-                            sendToServer(reply);
-                            std::string logstr = "[i] Shutdown message sent to " + target;
-                            std::cout << logstr << "\n";
-                            logWrite(logstr + ". Stopping bot...");
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                            shutdown();
-                            break;
+                        if (!reason.empty())
+                        {
+                            reply = "PRIVMSG " + msg_target + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
                         }
+                        else
+                        {
+                            reply = "PRIVMSG " + msg_target + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+                        }
+
+                        sendToServer(reply);
+                        std::string logstr = "[i] Shutdown message sent to " + msg_target;
+                        std::cout << logstr << "\n";
+                        logWrite(logstr + ". Stopping bot...");
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        shutdown();
                     }
                 }
             }

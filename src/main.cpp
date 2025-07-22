@@ -34,14 +34,15 @@ public:
 
     bool isAdmin(const std::string &nick)
     {
-        auto config = config_.get_client();
+        const auto config = config_.get_client();
         for (const auto &admin : config.admins)
         {
             if (std::equal(admin.begin(), admin.end(),
                            nick.begin(), nick.end(),
                            [](char a, char b)
                            {
-                               return std::tolower(a) == std::tolower(b);
+                               return std::tolower(static_cast<unsigned char>(a)) ==
+                                std::tolower(static_cast<unsigned char>(b));
                            }))
             {
                 return true;
@@ -753,7 +754,8 @@ std::vector<std::string> pack_strings(const std::vector<std::string> &input, siz
 }
 
 // Функция извлекает канал, если он начинается с '#' и содержит допустимые символы
-std::string extractChan(const std::string& msgtext) {
+std::string extractChan(const std::string& msgtext)
+{
     std::string trimmed = boost::algorithm::trim_copy(msgtext);
 
     // Проверяем, что строка начинается с '#' и содержит допустимые символы

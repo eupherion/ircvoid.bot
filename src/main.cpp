@@ -20,13 +20,13 @@ public:
     IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
         : socket_(io_context), config_(config) {}
     bool rusnetAuth = false;
-    std::vector<std::string> runtimeChans;
+    std::vector<std::string> rchans;
     void start(void)
     {
         const auto &server = config_.get_server();
         const auto &client = config_.get_client();
 
-        runtimeChans = client.channels;
+        rchans = client.channels;
 
         tcp::resolver resolver(socket_.get_executor());
         auto endpoints = resolver.resolve(server.host, std::to_string(server.port));
@@ -484,9 +484,9 @@ private:
             {
                 std::cout << "[+] Channel [" << ircmsg.params[2] << "] Names: " << ircmsg.trailing << '\n';
                 bool isChannel = false;
-                for (size_t i = 0; i < client.channels.size(); i++)
+                for (size_t i = 0; i < rchans.size(); i++)
                 {
-                    if (ircmsg.params[2] == client.channels[i])
+                    if (ircmsg.params[2] == rchans[i])
                     {
                         isChannel = true;
                     }
@@ -495,21 +495,21 @@ private:
                 {
                     if (ircmsg.trailing.find(client.nickname) != std::string::npos)
                     {
-                        logWrite("[+] Adding channel " + ircmsg.params[2] + " to runtime.channels");
-                        runtimeChans.push_back(ircmsg.params[2]);
-                        std::string runtimeChanList = "";
-                        for (size_t i = 0; i < runtimeChans.size(); i++)
+                        logWrite("[+] Adding channel " + ircmsg.params[2] + " to rchans (Runtime channels)");
+                        rchans.push_back(ircmsg.params[2]);
+                        std::string chanlist = "";
+                        for (size_t i = 0; i < rchans.size(); i++)
                         {
-                            runtimeChanList += runtimeChans[i] + ' ';
+                            chanlist += rchans[i] + ' ';
                         }
-                        std::cout << "[i] Runtime channels: " << runtimeChanList << '\n';
+                        std::cout << "[i] Runtime channels: " << chanlist << '\n';
                     }
                 }
                 else
                 {
                     if (ircmsg.trailing.find(client.nickname) != std::string::npos)
                     {
-                        std::cout << "[i] Channel " << ircmsg.params[2] << " already in runtime.channels\n";
+                        std::cout << "[i] Channel " << ircmsg.params[2] << " already in rchans (Runtime channels)\n";
                     }
                 }
             }
@@ -639,11 +639,11 @@ private:
                             sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
                             sendToServer("PART " + part_arg + "\r\n");
                             logWrite("[i] Parting channel " + part_arg + " by " + ircmsg.prefix.nick);
-                            auto it = std::find(runtimeChans.begin(), runtimeChans.end(), part_arg);
-                            if (it != runtimeChans.end())
+                            auto it = std::find(rchans.begin(), rchans.end(), part_arg);
+                            if (it != rchans.end())
                             {
-                                runtimeChans.erase(it);
-                                logWrite("[i] Channel " + part_arg + " removed from runtimeChans");
+                                rchans.erase(it);
+                                logWrite("[i] Channel " + part_arg + " removed from rchans (Runtime channels)");
                             }
                         }
                     }
@@ -654,6 +654,20 @@ private:
                             sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + replydest + "\x01\r\n");
                             sendToServer("PART " + replydest + "\r\n");
                             logWrite("[i] Parting channel " + replydest + " by " + ircmsg.prefix.nick);
+                            auto it = std::find(rchans.begin(), rchans.end(), replydest);
+                            if (it != rchans.end())
+                            {
+                                if (rchans.size() == 1)
+                                {
+                                    rchans.clear();
+                                    logWrite("[i] Channels list cleared");
+                                }
+                                else
+                                {
+                                    rchans.erase(it);
+                                    logWrite("[i] Channel " + replydest + " removed from rchans (Runtime channels)");
+                                }
+                            }
                         }
                     }
                 }

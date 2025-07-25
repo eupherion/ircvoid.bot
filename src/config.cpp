@@ -33,24 +33,27 @@ std::vector<std::string> IRCConfig::split(const std::string &str, char delimiter
 }
 
 IRCConfig::IRCConfig(const std::string &filename)
+    : runtime_file_(filename.substr(0, filename.find_last_of(".")) + ".run") // Инициализируем
 {
-    const std::string runtime_file = "bot.run";
-
     try
     {
-        // Шаг 1: Создаём bot.run, если его нет
-        if (!std::filesystem::exists(runtime_file))
+        // Шаг 1: Создаём runtime_file, если его нет
+        if (!std::filesystem::exists(runtime_file_))
         {
             if (!std::filesystem::exists(filename))
             {
                 throw std::runtime_error("Source config file not found: " + filename);
             }
-            std::filesystem::copy_file(filename, runtime_file);
-            std::cout << "[i] Created runtime config: " << runtime_file << std::endl;
+            std::filesystem::copy_file(filename, runtime_file_);
+            std::cout << "[i] Created runtime config: " << runtime_file_ << std::endl;
+        }
+        else
+        {
+            std::cout << "[i] Using config from " << runtime_file_ << '\n';
         }
 
-        // Шаг 2: Парсим из bot.run
-        auto table = cpptoml::parse_file(runtime_file);
+        // Шаг 2: Парсим из runtime_file
+        auto table = cpptoml::parse_file(runtime_file_);
 
         // [ircServer]
         auto ircServer = table->get_table("ircServer");
@@ -125,9 +128,8 @@ void IRCConfig::saveRuntimeConfig() const
 {
     try
     {
-        // Парсим текущий bot.run
-        auto table = cpptoml::parse_file("bot.run");
-
+        // Парсим текущий runtime_file
+        auto table = cpptoml::parse_file(runtime_file_);
         auto ircClient = table->get_table("ircClient");
 
         // Формируем строку каналов: "chan1, chan2, chan3"
@@ -144,11 +146,11 @@ void IRCConfig::saveRuntimeConfig() const
         ircClient->insert("ircBotChan", channels_str);
 
         // Перезаписываем файл
-        std::ofstream out("bot.run");
+        std::ofstream out(runtime_file_);
         out << *table;
         out.close();
 
-        std::cout << "[i] Runtime config saved: bot.run" << std::endl;
+        std::cout << "[i] Runtime config saved: " << runtime_file_ << std::endl;
     }
     catch (const std::exception &e)
     {

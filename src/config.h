@@ -52,6 +52,6 @@ private:
     Server server_;
     Client client_;
     Feature feature_;
-
+    std::string runtime_file_; // Имя файла runtime
     std::vector<std::string> split(const std::string &str, char delimiter = ',');
 };

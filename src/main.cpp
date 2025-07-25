@@ -20,10 +20,13 @@ public:
     IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
         : socket_(io_context), config_(config) {}
     bool rusnetAuth = false;
+    std::vector<std::string> runtimeChans;
     void start(void)
     {
         const auto &server = config_.get_server();
-        // const auto &client = config_.get_client();
+        const auto &client = config_.get_client();
+
+        runtimeChans = client.channels;
 
         tcp::resolver resolver(socket_.get_executor());
         auto endpoints = resolver.resolve(server.host, std::to_string(server.port));
@@ -357,8 +360,8 @@ private:
 
     void parseServerMessage(const std::string &line)
     {
-        const auto &client = config_.get_client();
-        const auto &feature = config_.get_feature();
+        auto &client = config_.get_client();
+        auto &feature = config_.get_feature();
         ircmsg.parseIrcMessage(line);
 
         // Теперь весь парсинг происходит через IRCMessage
@@ -491,6 +494,46 @@ private:
                 std::cout << logentry << "\n";
                 logWrite(logentry);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+        }
+
+        if (ircmsg.command == "353")
+        {
+            if (ircmsg.params[0] == client.nickname && ircmsg.params[2].find('#') != std::string::npos)
+            {
+                std::cout << "[+] Channel [" << ircmsg.params[2] << "] Names: " << ircmsg.trailing << '\n';
+                bool isChannel = false;
+                for (size_t i = 0; i < client.channels.size(); i++)
+                {
+                    if (ircmsg.params[2] == client.channels[i])
+                    {
+                        isChannel = true;
+                    }
+                }
+                if (!isChannel)
+                {
+                    if (ircmsg.trailing.find(client.nickname) != std::string::npos)
+                    {
+                        std::cout << "Adding channel " << ircmsg.params[2] << " to client.channels\n";
+                        std::string logentry = "[+] Adding channel " + ircmsg.params[2] + " to runtime.channels";
+                        std::cout << logentry << "\n";
+                        logWrite(logentry);
+                        runtimeChans.push_back(ircmsg.params[2]);
+                        std::string runtimeChanList = "";
+                        for (size_t i = 0; i < runtimeChans.size(); i++)
+                        {
+                            runtimeChanList += runtimeChans[i] + ' ';
+                        }
+                        std::cout << "[i] Runtime channels: " << runtimeChanList << '\n';
+                    }
+                }
+                else
+                {
+                    if (ircmsg.trailing.find(client.nickname) != std::string::npos)
+                    {
+                        std::cout << "[i] Channel " << ircmsg.params[2] << " already in runtime.channels\n";
+                    }
+                }
             }
         }
 

@@ -122,14 +122,13 @@ public:
         {
             std::cerr << "[ERR] Exception in logWrite(): " << ex.what() << std::endl;
         }
+        std::cout << message << std::endl;
     }
 
     void shutdown(void)
     {
-        std::cout << "[i] Saving runtime config..." << std::endl;
         config_.saveRuntimeConfig();
         logWrite("[i] Saving runtime config...");
-        std::cout << "[i] Shutting down bot..." << std::endl;
         sendToServer("QUIT :Shutting down\r\n");
         logWrite("[i] QUIT Command sent to server");
 
@@ -298,7 +297,6 @@ private:
         if (!error)
         {
             std::string logentry = "[+] Connected to " + server.host + ":" + std::to_string(server.port);
-            std::cout << logentry + "\n";
             logWrite(logentry);
             std::string message("");
             if (!server.password.empty())
@@ -387,9 +385,7 @@ private:
         if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
         {
             std::string ctcpCommand = ircmsg.trailing.substr(1, ircmsg.trailing.size() - 2);
-            std::string gotCtcpMsg = "[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick;
-            std::cout << gotCtcpMsg + "\n";
-            logWrite(gotCtcpMsg);
+            logWrite("[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick);
 
             if (ctcpCommand.find("VERSION") != std::string::npos)
             {
@@ -400,11 +396,8 @@ private:
                 }
                 else
                 {
-                    std::string ctcpReply = "NOTICE " + replydest + " :\x01VERSION " + client.dcc_version + "\x01\r\n";
-                    sendToServer(ctcpReply);
-                    std::string logentry = "[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + replydest;
-                    std::cout << logentry + "\n";
-                    logWrite(logentry);
+                    sendToServer("NOTICE " + replydest + " :\x01VERSION " + client.dcc_version + "\x01\r\n");
+                    logWrite("[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + replydest);
                 }
             }
 
@@ -417,11 +410,8 @@ private:
                 }
                 else
                 {
-                    std::string ctcpReply = "NOTICE " + replydest + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n";
-                    sendToServer(ctcpReply);
-                    std::string logentry = "[+] Sent CTCP PING to " + replydest;
-                    std::cout << logentry + "\n";
-                    logWrite(logentry);
+                    sendToServer("NOTICE " + replydest + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n");
+                    logWrite("[+] Sent CTCP PING to " + replydest);
                 }
             }
 
@@ -438,33 +428,26 @@ private:
                     auto now = std::chrono::system_clock::now();
                     auto timestamp = std::chrono::system_clock::to_time_t(now);
 
-                    // Преобразуем время в строку
-                    std::string ctcpReply = "NOTICE " + replydest + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n";
-                    sendToServer(ctcpReply);
-
-                    // Логирование
-                    std::string logentry = "[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick;                 
-                    std::cout << logentry + "\n";
-                    logWrite(logentry);
+                    sendToServer("NOTICE " + replydest + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n");
+                    logWrite("[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick);
                 }
             }
         }
 
         if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos)
         {
-            std::cout << "[+] " << ircmsg.trailing << '\n';
-            std::cout << "[+] RusNet Server detected\n";
+            logWrite("[+] " + ircmsg.trailing);
+            logWrite("[+] RusNet Server detected");
 
             std::string setmode = "MODE " + client.nickname + " +ix\r\n";
             sendToServer(setmode);
-            std::cout << "[+] Set MODE +ix for " << client.nickname << '\n';
             logWrite("[+] " + setmode);
             rusnetAuth = true;
         }
 
         if (ircmsg.command == "376" || ircmsg.command == "422")
         {
-            std::cout << "[+] End of MOTD command received\n";
+            logWrite("[+] End of MOTD command received");
             if (!client.nickserv_password.empty())
             {
                 std::string ns_auth = "";
@@ -481,7 +464,6 @@ private:
                 sendToServer(ns_auth);
                 std::string logentry = "[+] Sent NICKSERV AUTH";
                 if (rusnetAuth) {logentry += " (RusNet)";}
-                std::cout << logentry << "\n";
                 logWrite(logentry);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
@@ -491,7 +473,6 @@ private:
                 std::string joinMessage = "JOIN " + client.channels[i] + "\r\n";
                 sendToServer(joinMessage);
                 std::string logentry = "[i] Joining channel " + client.channels[i];
-                std::cout << logentry << "\n";
                 logWrite(logentry);
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
             }
@@ -514,10 +495,7 @@ private:
                 {
                     if (ircmsg.trailing.find(client.nickname) != std::string::npos)
                     {
-                        std::cout << "Adding channel " << ircmsg.params[2] << " to client.channels\n";
-                        std::string logentry = "[+] Adding channel " + ircmsg.params[2] + " to runtime.channels";
-                        std::cout << logentry << "\n";
-                        logWrite(logentry);
+                        logWrite("[+] Adding channel " + ircmsg.params[2] + " to runtime.channels");
                         runtimeChans.push_back(ircmsg.params[2]);
                         std::string runtimeChanList = "";
                         for (size_t i = 0; i < runtimeChans.size(); i++)
@@ -541,9 +519,7 @@ private:
         {
             if (ircmsg.params[0] == client.nickname) // в RusNet nick == nick!
             {
-                std::string logentry = "[+] Channel " + ircmsg.params[2] + " joined";
-                std::cout << logentry << "\n";
-                logWrite(logentry);
+                logWrite("[+] Channel " + ircmsg.params[2] + " joined");
             }
         }
 
@@ -551,9 +527,7 @@ private:
         {
             if (ircmsg.prefix.nick == client.nickname)
             {
-                std::string logentry = "[-] Channel " + ircmsg.params[0] + " left";
-                std::cout << logentry << "\n";
-                logWrite(logentry);
+                logWrite("[-] Channel " + ircmsg.params[0] + " left");
             }
         }
 
@@ -622,10 +596,9 @@ private:
                         }
 
                         sendToServer(reply);
-                        std::string logentry = "[i] Shutdown message sent to " + replydest;
-                        std::cout << logentry << "\n";
-                        logWrite(logentry + ".\n[i] Stopping bot...");
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        logWrite("[i] Shutdown message sent to " + replydest);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        logWrite("[!] Shutting down...");
                         shutdown();
                     }
                 }
@@ -643,7 +616,6 @@ private:
                         {
                             sendToServer("JOIN " + join_arg + "\r\n");
                             sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + join_arg + "\x01\r\n");
-                            std::cout << "[i] Joining channel " << join_arg << "\n";
                             logWrite("[i] Joining channel " + join_arg + " by " + ircmsg.prefix.nick);
                         }
                     }
@@ -666,8 +638,13 @@ private:
                         {
                             sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
                             sendToServer("PART " + part_arg + "\r\n");
-                            std::cout << "[i] Parting channel " << part_arg << "\n";
                             logWrite("[i] Parting channel " + part_arg + " by " + ircmsg.prefix.nick);
+                            auto it = std::find(runtimeChans.begin(), runtimeChans.end(), part_arg);
+                            if (it != runtimeChans.end())
+                            {
+                                runtimeChans.erase(it);
+                                logWrite("[i] Channel " + part_arg + " removed from runtimeChans");
+                            }
                         }
                     }
                     else
@@ -676,7 +653,6 @@ private:
                         {
                             sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + replydest + "\x01\r\n");
                             sendToServer("PART " + replydest + "\r\n");
-                            std::cout << "[i] Parting channel " << replydest << "\n";
                             logWrite("[i] Parting channel " + replydest + " by " + ircmsg.prefix.nick);
                         }
                     }
@@ -689,9 +665,7 @@ private:
 
             if (msgtext.substr(0, 4) == ".ip ")
             {
-                std:: string logentry = "[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext;
-                std::cout << logentry + '\n';
-                logWrite(logentry);
+                logWrite("[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext);
                 std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
 
                 if (feature.debug_mode)
@@ -709,7 +683,6 @@ private:
                         std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
                         sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
                         std::string logentry = "[i] Help message sent to " + ircmsg.prefix.nick;                    
-                        std::cout << logentry + '\n';
                         logWrite(logentry);
                     }
                     else
@@ -720,9 +693,7 @@ private:
                         {
                             std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
                             sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                            std::string logentry = "[i] Bot reply: " + botReply;
-                            std::cout << "Bot reply: " << botReply << '\n';
-                            logWrite(logentry);
+                            logWrite("[i] Bot reply: " + botReply);
                         }
                         else if (infoVect.size() > 1)
                         {
@@ -737,9 +708,7 @@ private:
                             for (size_t i = 0; i < packedIpAddr.size(); i++)
                             {
                                 sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                                std::string logentry = "[i] Sent packed IPs to " + replydest;
-                                std::cout << logentry << '\n';
-                                logWrite(logentry);
+                                logWrite("[i] Sent packed IPs to " + replydest);
                             }
                         }
                     }

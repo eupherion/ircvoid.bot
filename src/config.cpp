@@ -2,37 +2,55 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <boost/algorithm/string.hpp>
 
 // Разделение строки на вектор по разделителю
 std::vector<std::string> IRCConfig::split(const std::string &str, char delimiter)
 {
     std::vector<std::string> tokens;
-    std::stringstream ss(str);
-    std::string token;
 
-    while (std::getline(ss, token, delimiter))
+    // Разделяем по символу-разделителю
+    boost::algorithm::split(
+        tokens, str,
+        [delimiter](char c)
+        { return c == delimiter; },
+        boost::algorithm::token_compress_off);
+
+    // Очищаем каждую подстроку от пробелов и табуляций
+    for (std::string &token : tokens)
     {
-        if (!token.empty())
-        {
-            token.erase(token.find_last_not_of(" \t") + 1);
-            token.erase(0, token.find_first_not_of(" \t"));
-            tokens.push_back(token);
-        }
+        boost::algorithm::trim(token);
     }
+
+    // Удаляем пустые строки
+    tokens.erase(
+        std::remove_if(tokens.begin(), tokens.end(),
+                       [](const std::string &s)
+                       { return s.empty(); }),
+        tokens.end());
 
     return tokens;
 }
 
 IRCConfig::IRCConfig(const std::string &filename)
 {
-    if (!std::filesystem::exists(filename))
-    {
-        throw std::runtime_error("Config file not found: " + filename);
-    }
+    const std::string runtime_file = "bot.run";
 
     try
     {
-        auto table = cpptoml::parse_file(filename);
+        // Шаг 1: Создаём bot.run, если его нет
+        if (!std::filesystem::exists(runtime_file))
+        {
+            if (!std::filesystem::exists(filename))
+            {
+                throw std::runtime_error("Source config file not found: " + filename);
+            }
+            std::filesystem::copy_file(filename, runtime_file);
+            std::cout << "[i] Created runtime config: " << runtime_file << std::endl;
+        }
+
+        // Шаг 2: Парсим из bot.run
+        auto table = cpptoml::parse_file(runtime_file);
 
         // [ircServer]
         auto ircServer = table->get_table("ircServer");
@@ -49,7 +67,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 
         // Получаем список каналов
         std::string channels_str = *ircClient->get_as<std::string>("ircBotChan");
-        client_.channels = split(channels_str, ','); // разбиваем по запятой
+        client_.channels = split(channels_str, ',');
 
         // Получаем список админов
         std::string admins_str = *ircClient->get_as<std::string>("ircBotAdmi");
@@ -62,7 +80,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         }
         else
         {
-            client_.alt_nicks.push_back(client_.nickname + "_"); // Запасной ник
+            client_.alt_nicks.push_back(client_.nickname + "_");
         }
 
         client_.run_at_connect = *ircClient->get_as<std::string>("ircBotRcon");
@@ -95,6 +113,46 @@ IRCConfig::IRCConfig(const std::string &filename)
     {
         std::cerr << "Error parsing TOML: " << e.what() << "\n";
         throw;
+    }
+}
+
+bool IRCConfig::validate() const // Проверка на корректность
+{/* Проверка runtime */
+    return true;
+}
+
+void IRCConfig::saveRuntimeConfig() const
+{
+    try
+    {
+        // Парсим текущий bot.run
+        auto table = cpptoml::parse_file("bot.run");
+
+        auto ircClient = table->get_table("ircClient");
+
+        // Формируем строку каналов: "chan1, chan2, chan3"
+        std::ostringstream oss;
+        for (size_t i = 0; i < client_.channels.size(); ++i)
+        {
+            if (i > 0)
+                oss << ", ";
+            oss << client_.channels[i];
+        }
+        std::string channels_str = oss.str();
+
+        // Устанавливаем новое значение
+        ircClient->insert("ircBotChan", channels_str);
+
+        // Перезаписываем файл
+        std::ofstream out("bot.run");
+        out << *table;
+        out.close();
+
+        std::cout << "[i] Runtime config saved: bot.run" << std::endl;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "[ERR] Failed to save runtime config: " << e.what() << std::endl;
     }
 }
 

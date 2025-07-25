@@ -123,8 +123,12 @@ public:
 
     void shutdown(void)
     {
+        std::cout << "[i] Saving runtime config..." << std::endl;
+        config_.saveRuntimeConfig();
+        logWrite("[i] Saving runtime config...");
         std::cout << "[i] Shutting down bot..." << std::endl;
         sendToServer("QUIT :Shutting down\r\n");
+        logWrite("[i] QUIT Command sent to server");
 
         if (socket_.is_open())
         {
@@ -169,10 +173,10 @@ private:
         // Конструктор из строки вида "nick!ident@host"
         IRCPrefix(const std::string &prefixStr)
         {
-            parse(prefixStr);
+            parseIrcPrefix(prefixStr);
         }
 
-        void parse(const std::string &prefixStr)
+        void parseIrcPrefix(const std::string &prefixStr)
         {
             std::string::size_type pos1 = prefixStr.find('!');
             std::string::size_type pos2 = prefixStr.find('@');
@@ -202,10 +206,10 @@ private:
 
         explicit IRCMessage(const std::string &rawMsg)
         {
-            parse(rawMsg);
+            parseIrcMessage(rawMsg);
         }
 
-        void parse(const std::string &rawMsg)
+        void parseIrcMessage(const std::string &rawMsg)
         {
             std::string msg = rawMsg;
             // std::cout << "[Parsing RAW] " << msg << std::endl;
@@ -355,7 +359,7 @@ private:
     {
         const auto &client = config_.get_client();
         const auto &feature = config_.get_feature();
-        ircmsg.parse(line);
+        ircmsg.parseIrcMessage(line);
 
         // Теперь весь парсинг происходит через IRCMessage
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
@@ -490,7 +494,7 @@ private:
             }
         }
 
-        if (ircmsg.command == "353")
+        if (ircmsg.command == "366")
         {
             if (ircmsg.params[0] == client.nickname) // в RusNet nick == nick!
             {
@@ -577,7 +581,7 @@ private:
                         sendToServer(reply);
                         std::string logentry = "[i] Shutdown message sent to " + replydest;
                         std::cout << logentry << "\n";
-                        logWrite(logentry + ". Stopping bot...");
+                        logWrite(logentry + ".\n[i] Stopping bot...");
                         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                         shutdown();
                     }

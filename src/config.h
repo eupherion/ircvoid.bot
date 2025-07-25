@@ -44,6 +44,8 @@ public:
     const Client &get_client() const { return client_; }
     const Feature &get_feature() const { return feature_; }
 
+    void saveRuntimeConfig() const;
+    bool validate() const;
     void print() const;
 
 private:

@@ -36,6 +36,7 @@ bot
 .vscode/
 
 # Dev runtime configs, objects
+*.run
 bin/
 obj/
 run/

@@ -17,10 +17,27 @@ using boost::asio::ip::tcp;
 class IRCBot
 {
 public:
+
+    std::vector<std::string> rchans;
+    bool rusnetAuth = false;
+
+    struct IRCChan
+    {
+        std::string name;
+        std::string topic;
+        bool isJoined;
+        int userCount;
+
+        // Конструктор (опционально)
+        IRCChan(const std::string &n, const std::string &t = "", bool joined = false, int users = 0)
+            : name(n), topic(t), isJoined(joined), userCount(users) {}
+    };
+
+    std::vector<IRCChan> channels;
+
     IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
         : socket_(io_context), config_(config) {}
-    bool rusnetAuth = false;
-    std::vector<std::string> rchans;
+
     void start(void)
     {
         const auto &server = config_.get_server();
@@ -483,15 +500,15 @@ private:
             if (ircmsg.params[0] == client.nickname && ircmsg.params[2].find('#') != std::string::npos)
             {
                 std::cout << "[+] Channel [" << ircmsg.params[2] << "] Names: " << ircmsg.trailing << '\n';
-                bool isChannel = false;
+                bool isChanInRuntime = false;
                 for (size_t i = 0; i < rchans.size(); i++)
                 {
                     if (ircmsg.params[2] == rchans[i])
                     {
-                        isChannel = true;
+                        isChanInRuntime = true;
                     }
                 }
-                if (!isChannel)
+                if (!isChanInRuntime)
                 {
                     if (ircmsg.trailing.find(client.nickname) != std::string::npos)
                     {

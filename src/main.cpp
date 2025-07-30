@@ -25,8 +25,9 @@ public:
     {
         std::string name;
         std::string topic;
-        bool isJoined;
-        int userCount;
+        std::vector<std::string> users;
+        bool isJoined = false;
+        int userCount = 0;
 
         // Конструктор (опционально)
         IRCChan(const std::string &n, const std::string &t = "", bool joined = false, int users = 0)
@@ -495,46 +496,56 @@ private:
             }
         }
 
-        if (ircmsg.command == "353")
+        if (ircmsg.command == "353") // :irc.example.com 353 yournick = #channel :userNick1 userNick2 userNick3
         {
             if (ircmsg.params[0] == client.nickname && ircmsg.params[2].find('#') != std::string::npos)
             {
                 std::cout << "[+] Channel [" << ircmsg.params[2] << "] Names: " << ircmsg.trailing << '\n';
                 bool isChanInRuntime = false;
-                for (size_t i = 0; i < rchans.size(); i++)
+                for (std::string rchan : rchans)
                 {
-                    if (ircmsg.params[2] == rchans[i])
+                    if (rchan == ircmsg.params[2])
                     {
                         isChanInRuntime = true;
+                        break;
                     }
                 }
                 if (!isChanInRuntime)
                 {
-                    if (ircmsg.trailing.find(client.nickname) != std::string::npos)
+                    logWrite("[+] Adding channel " + ircmsg.params[2] + " to rchans (Runtime channels)");
+                    rchans.push_back(ircmsg.params[2]);
+                    std::string rchans_str = "";
+                    for (std::string rchan : rchans)
                     {
-                        logWrite("[+] Adding channel " + ircmsg.params[2] + " to rchans (Runtime channels)");
-                        rchans.push_back(ircmsg.params[2]);
-                        std::string chanlist = "";
-                        for (size_t i = 0; i < rchans.size(); i++)
-                        {
-                            chanlist += rchans[i] + ' ';
-                        }
-                        std::cout << "[i] Runtime channels: " << chanlist << '\n';
+                        rchans_str += rchan + ' ';
                     }
+                    logWrite("[i] Runtime channels: " + rchans_str);
                 }
                 else
                 {
-                    if (ircmsg.trailing.find(client.nickname) != std::string::npos)
+                    if (ircmsg.params[0].find(client.nickname) != std::string::npos)
                     {
-                        std::cout << "[i] Channel " << ircmsg.params[2] << " already in rchans (Runtime channels)\n";
+                        for (std::string rchan : rchans)
+                        {if (rchan == ircmsg.params[2])
+                            {
+                                std::cout << "[i] Channel " << ircmsg.params[2] << " already in rchans (Runtime channels)\n";
+                                return;
+                            }
+                        }
                     }
                 }
+                // channels.emplace_back(ircmsg.params[2], "", splitStringBySpaces(ircmsg.trailing), true, 0);
+                // logWrite("[+] Channel " + ircmsg.params[2] + " added to channels vector");
+                // for (const auto &channel : channels)
+                // {
+                //     std::cout << "[i] Channel name: " << channel.name << std::endl;
+                // }
             }
         }
 
-        if (ircmsg.command == "366")
+        if (ircmsg.command == "366") // :irc.example.com 366 yournick #channel :End of /NAMES list.
         {
-            if (ircmsg.params[0] == client.nickname) // в RusNet nick == nick!
+            if (ircmsg.params[0] == client.nickname)
             {
                 logWrite("[+] Channel " + ircmsg.params[2] + " joined");
             }
@@ -661,6 +672,12 @@ private:
                             {
                                 rchans.erase(it);
                                 logWrite("[i] Channel " + part_arg + " removed from rchans (Runtime channels)");
+                                std::string rchans_str = "";
+                                for (std::string rchans : rchans)
+                                {
+                                    rchans_str += rchans + " ";
+                                }
+                                logWrite("[i] Runtime channels: " + rchans_str);
                             }
                         }
                     }

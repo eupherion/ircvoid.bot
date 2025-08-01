@@ -1,16 +1,17 @@
+#include "config.h"
+#include "ipinfo.h"
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
-#include <iostream>
-#include <algorithm>
+#include <chrono> // Для std::chrono::milliseconds
 #include <filesystem>
+#include <iostream>
+#include <regex> // Для std::regex и std::regex_match
 #include <string>
+#include <thread> // Для std::this_thread::sleep_for
+#include <unordered_set> // Для std::unordered_set
 #include <vector>
-#include <thread>   // Для std::this_thread::sleep_for
-#include <chrono>   // Для std::chrono::milliseconds
-#include <regex>    // Для std::regex и std::regex_match
-#include "config.h"
-#include "ipinfo.h"
 
 using boost::asio::ip::tcp;
 
@@ -18,10 +19,21 @@ class IRCBot
 {
 public:
 
-    std::vector<std::string> rchans;
     bool rusnetAuth = false;
 
-    struct IRCChan
+    // struct IRCUser // :irc.example.org 352 Alice #chat bob bhost irc.example.org Bobby H :0 Bob Smith
+    // {
+    //     std::string nick;
+    //     std::string user;
+    //     std::string host;
+    //     std::string serv;
+    //     std::string flag;
+    //     std::string hops;
+    //     std::string real;
+    //     std::string info;
+    // };
+
+    struct IRCChan // Структура канала
     {
         std::string name;
         std::string topic;
@@ -30,11 +42,15 @@ public:
         int userCount = 0;
 
         // Конструктор (опционально)
-        IRCChan(const std::string &n, const std::string &t = "", bool joined = false, int users = 0)
-            : name(n), topic(t), isJoined(joined), userCount(users) {}
+        IRCChan(const std::string &n,
+                const std::string &t,
+                const std::vector<std::string> &u,
+                bool joined = false,
+                int count = 0)
+            : name(n), topic(t), users(u), isJoined(joined), userCount(count ? count : u.size()) {}
     };
 
-    std::vector<IRCChan> channels;
+    std::vector<IRCChan> channels; // Вектор структур каналов
 
     IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
         : socket_(io_context), config_(config) {}
@@ -42,13 +58,8 @@ public:
     void start(void)
     {
         const auto &server = config_.get_server();
-        const auto &client = config_.get_client();
-
-        rchans = client.channels;
-
         tcp::resolver resolver(socket_.get_executor());
         auto endpoints = resolver.resolve(server.host, std::to_string(server.port));
-
         boost::asio::async_connect(socket_, endpoints,
                                    boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1 /* , client.nickname, server.password */));
     }
@@ -400,7 +411,7 @@ private:
             sendToServer(pong);
         }
 
-        if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
+        else if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
         {
             std::string ctcpCommand = ircmsg.trailing.substr(1, ircmsg.trailing.size() - 2);
             logWrite("[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick);
@@ -452,7 +463,7 @@ private:
             }
         }
 
-        if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos)
+        else if (ircmsg.command == "020" && ircmsg.trailing.find("RusNet") != std::string::npos)
         {
             logWrite("[+] " + ircmsg.trailing);
             logWrite("[+] RusNet Server detected");
@@ -463,7 +474,7 @@ private:
             rusnetAuth = true;
         }
 
-        if (ircmsg.command == "376" || ircmsg.command == "422")
+        else if (ircmsg.command == "376" || ircmsg.command == "422")
         {
             logWrite("[+] End of MOTD command received");
             if (!client.nickserv_password.empty())
@@ -471,7 +482,7 @@ private:
                 std::string ns_auth = "";
                 if (rusnetAuth)
                 {
-                    std::cout << "[i] RusNet NickServ reply generated\n";
+                    std::cout << "[i] RusNet NickServ reply formed\n";
                     ns_auth = "NICKSERV IDENTIFY " + client.nickserv_password + "\r\n";
                 }
                 else
@@ -496,71 +507,166 @@ private:
             }
         }
 
-        if (ircmsg.command == "353") // :irc.example.com 353 yournick = #channel :userNick1 userNick2 userNick3
+        else if (ircmsg.command == "353") // :server 353 yournick = #channel :userNick1 userNick2 ...
         {
             if (ircmsg.params[0] == client.nickname && ircmsg.params[2].find('#') != std::string::npos)
             {
-                std::cout << "[+] Channel [" << ircmsg.params[2] << "] Names: " << ircmsg.trailing << '\n';
-                bool isChanInRuntime = false;
-                for (std::string rchan : rchans)
+                auto userlist = splitStringBySpaces(ircmsg.trailing);
+                std::string channelName = ircmsg.params[2];
+
+                bool found = false;
+                for (size_t i = 0; i < channels.size(); ++i)
                 {
-                    if (rchan == ircmsg.params[2])
+                    if (channels[i].name == channelName)
                     {
-                        isChanInRuntime = true;
+                        found = true;
+                        auto &existingUsers = channels[i].users;
+
+                        // Объединяем списки без дубликатов
+                        std::unordered_set<std::string> userSet(existingUsers.begin(), existingUsers.end());
+                        for (const auto &user : userlist)
+                        {
+                            userSet.insert(user);
+                        }
+                        existingUsers.assign(userSet.begin(), userSet.end());
+                        channels[i].userCount = existingUsers.size();
+
+                        std::cout << "[+] Updated user list for " << channelName
+                                  << " (" << existingUsers.size() << " users)" << std::endl;
                         break;
                     }
                 }
-                if (!isChanInRuntime)
+
+                if (!found)
                 {
-                    logWrite("[+] Adding channel " + ircmsg.params[2] + " to rchans (Runtime channels)");
-                    rchans.push_back(ircmsg.params[2]);
-                    std::string rchans_str = "";
-                    for (std::string rchan : rchans)
-                    {
-                        rchans_str += rchan + ' ';
-                    }
-                    logWrite("[i] Runtime channels: " + rchans_str);
+                    // Создаём новый канал с первым списком пользователей
+                    channels.emplace_back(channelName, "", userlist, true, userlist.size());
+                    logWrite("[+] Channel " + channelName + " added to channels vector");
                 }
-                else
-                {
-                    if (ircmsg.params[0].find(client.nickname) != std::string::npos)
-                    {
-                        for (std::string rchan : rchans)
-                        {if (rchan == ircmsg.params[2])
-                            {
-                                std::cout << "[i] Channel " << ircmsg.params[2] << " already in rchans (Runtime channels)\n";
-                                return;
-                            }
-                        }
-                    }
-                }
-                // channels.emplace_back(ircmsg.params[2], "", splitStringBySpaces(ircmsg.trailing), true, 0);
-                // logWrite("[+] Channel " + ircmsg.params[2] + " added to channels vector");
-                // for (const auto &channel : channels)
-                // {
-                //     std::cout << "[i] Channel name: " << channel.name << std::endl;
-                // }
             }
         }
 
-        if (ircmsg.command == "366") // :irc.example.com 366 yournick #channel :End of /NAMES list.
+        else if (ircmsg.command == "366") // :server 366 yournick #channel :End of /NAMES list.
         {
-            if (ircmsg.params[0] == client.nickname)
+            if (ircmsg.params.size() >= 2)
             {
-                logWrite("[+] Channel " + ircmsg.params[2] + " joined");
+                std::string channelName = ircmsg.params[1];
+
+                for (auto &channel : channels)
+                {
+                    if (channel.name == channelName)
+                    {
+                        // Список пользователей завершён — считаем, что бот "присоединён"
+                        channel.isJoined = true;
+                        std::cout << "[+] Channel " << channelName
+                                  << " names saved. There are " << channel.userCount << " users." << std::endl;
+                        break;
+                    }
+                }
             }
         }
 
-        if (ircmsg.command == "PART")
+        else if (ircmsg.command == "JOIN") // :newnick!user@host JOIN :#channel
         {
+            std::string chanjoined = extractChan(ircmsg.trailing);
+            std::string nick = ircmsg.prefix.nick;
+            for (auto &chan : channels)
+            {
+                if (chan.name == chanjoined)
+                {
+                    auto &users = chan.users;
+                    auto it = std::find(users.begin(), users.end(), nick);
+                    if (it == users.end())
+                    {
+                        // Добавляем, если ещё не в списке
+                        users.push_back(nick);
+                        chan.userCount = users.size();
+                        logWrite("[+] User " + nick + " joined channel " + chanjoined);
+                        logWrite("[i] Channel " + chanjoined + " userlist updated");
+                    }
+                    else
+                    {
+                        logWrite("[DEBUG] User " + nick + " already in userlist of " + chanjoined);
+                    }
+                    break;
+                }
+            }
+        }
+
+        else if (ircmsg.command == "PART") // :youirnick!user@host PART #channel :reason
+        {
+            std::string chanleft = ircmsg.params[0];
+
             if (ircmsg.prefix.nick == client.nickname)
             {
-                logWrite("[-] Channel " + ircmsg.params[0] + " left");
+                // Бот покинул канал — удаляем из списков
+                auto &chans = channels;
+                auto it = std::find_if(chans.begin(), chans.end(),
+                                       [&chanleft](const IRCChan &c)
+                                       { return c.name == chanleft; });
+                if (it != chans.end())
+                {
+                    chans.erase(it);
+                }
+                logWrite("[-] Channel " + chanleft + " left and removed from internal lists");
+            }
+            else
+            {
+                // Другой пользователь покинул — можно обновить users в канале
+                for (auto &chan : channels)
+                {
+                    if (chan.name == chanleft)
+                    {
+                        auto &users = chan.users;
+                        users.erase(std::remove(users.begin(), users.end(), ircmsg.prefix.nick), users.end());
+                        chan.userCount = users.size();
+                        logWrite("[-] User " + ircmsg.prefix.nick + " left channel " + chanleft);
+                        logWrite("[i] Channel " + chanleft + " userlist updated");
+                        break;
+                    }
+                }
+            }
+        }
+        else if (ircmsg.command == "QUIT")
+        {
+            std::string nick = ircmsg.prefix.nick;
+
+            for (auto &chan : channels)
+            {
+                auto &users = chan.users;
+                auto it = std::find(users.begin(), users.end(), nick);
+                if (it != users.end())
+                {
+                    users.erase(it);
+                    chan.userCount = users.size();
+                    logWrite("[-] User " + nick + " quit from all channels");
+                }
+            }
+        }
+        else if (ircmsg.command == "KICK")
+        {
+            std::string channel = ircmsg.params[0];
+            std::string kicked = ircmsg.params[1];
+
+            for (auto &chan : channels)
+            {
+                if (chan.name == channel)
+                {
+                    auto &users = chan.users;
+                    auto it = std::find(users.begin(), users.end(), kicked);
+                    if (it != users.end())
+                    {
+                        users.erase(it);
+                        chan.userCount = users.size();
+                        logWrite("[-] User " + kicked + " was kicked from " + channel);
+                    }
+                    break;
+                }
             }
         }
 
         // Пример реакции на PRIVMSG
-        if (ircmsg.command == "PRIVMSG")
+        else if (ircmsg.command == "PRIVMSG")
         {
             std::string mtarget = ircmsg.params[0];
             std::string msgtext = ircmsg.trailing;
@@ -589,10 +695,19 @@ private:
                     std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
                     std::string reply = "PRIVMSG " + replydest + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
                     sendToServer(reply);
+                    std::string chans_joined = "";
+                    for (auto &chan : channels)
+                    {
+                        chans_joined += chan.name + " [" + std::to_string(chan.userCount) + "] ";
+                    }
+                    if (!chans_joined.empty())
+                    {
+                        sendToServer("PRIVMSG " + replydest + " :Joined channels: " + chans_joined + "\r\n");
+                    }
                 }
             }
 
-            if (msgtext.size() >= 5 && msgtext.substr(0, 5) == ".quit")
+            else if (msgtext.size() >= 5 && msgtext.substr(0, 5) == ".quit")
             {
                 if (client.admins.empty())
                 {
@@ -608,7 +723,7 @@ private:
                     }
                     if (isAdmin(ircmsg.prefix.nick))
                     {
-                        std::cout << "[i] Admin " << ircmsg.prefix.nick << " is in admins list\n";
+                        std::cout << "[i] Admin " << ircmsg.prefix.nick << " quit command received\n";
                         std::string reply = "";
                         std::string action = "PRIVMSG " + replydest + " :\x01" + "ACTION Going down...\x01\r\n";
                         sendToServer(action);
@@ -632,7 +747,7 @@ private:
                 }
             }
 
-            if (msgtext.substr(0, 6) == ".join ")
+            else if (msgtext.substr(0, 6) == ".join ")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
@@ -654,55 +769,57 @@ private:
                 }
             }
 
-            if (msgtext.substr(0, 5) == ".part")
+            else if (msgtext.substr(0, 5) == ".part")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
                     std::string part_arg = "";
+                    std::string channel_to_part;
+
                     if (msgtext.size() > 6)
                     {
                         part_arg = extractChan(msgtext.substr(6));
                         if (!part_arg.empty())
                         {
-                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + part_arg + "\x01\r\n");
-                            sendToServer("PART " + part_arg + "\r\n");
-                            logWrite("[i] Parting channel " + part_arg + " by " + ircmsg.prefix.nick);
-                            auto it = std::find(rchans.begin(), rchans.end(), part_arg);
-                            if (it != rchans.end())
-                            {
-                                rchans.erase(it);
-                                logWrite("[i] Channel " + part_arg + " removed from rchans (Runtime channels)");
-                                std::string rchans_str = "";
-                                for (std::string rchans : rchans)
-                                {
-                                    rchans_str += rchans + " ";
-                                }
-                                logWrite("[i] Runtime channels: " + rchans_str);
-                            }
+                            channel_to_part = part_arg;
+                        }
+                        else
+                        {
+                            sendToServer("NOTICE " + ircmsg.prefix.nick + " :Invalid channel name.\r\n");
+                            return;
                         }
                     }
                     else
                     {
-                        if (replydest.find("#") != std::string::npos)
+                        // Если аргумента нет, покидаем текущий канал
+                        if (ircmsg.params[0].find('#') != std::string::npos)
                         {
-                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + replydest + "\x01\r\n");
-                            sendToServer("PART " + replydest + "\r\n");
-                            logWrite("[i] Parting channel " + replydest + " by " + ircmsg.prefix.nick);
-                            auto it = std::find(rchans.begin(), rchans.end(), replydest);
-                            if (it != rchans.end())
-                            {
-                                if (rchans.size() == 1)
-                                {
-                                    rchans.clear();
-                                    logWrite("[i] Channels list cleared");
-                                }
-                                else
-                                {
-                                    rchans.erase(it);
-                                    logWrite("[i] Channel " + replydest + " removed from rchans (Runtime channels)");
-                                }
-                            }
+                            channel_to_part = ircmsg.params[0];
                         }
+                        else
+                        {
+                            sendToServer("NOTICE " + ircmsg.prefix.nick + " :No channel specified.\r\n");
+                            return;
+                        }
+                    }
+
+                    // 1. Отправляем команды
+                    sendToServer("PRIVMSG " + channel_to_part + " :\x01" + "ACTION parts " + channel_to_part + "\x01\r\n");
+                    sendToServer("PART " + channel_to_part + "\r\n");
+                    logWrite("[i] Parting channel " + channel_to_part + " by " + ircmsg.prefix.nick);
+
+                    // 2. Удаляем канал из вектора channels
+                    auto &chans = channels;
+                    auto it = std::find_if(chans.begin(), chans.end(),
+                                           [&channel_to_part](const IRCChan &c)
+                                           {
+                                               return c.name == channel_to_part;
+                                           });
+
+                    if (it != chans.end())
+                    {
+                        chans.erase(it);
+                        logWrite("[-] Removed channel " + channel_to_part + " from internal list.");
                     }
                 }
                 else
@@ -711,59 +828,88 @@ private:
                 }
             }
 
-            if (msgtext.substr(0, 4) == ".ip ")
+            else if (msgtext.substr(0, 7) == ".names ")
             {
-                logWrite("[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext);
-                std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(4));
-
-                if (feature.debug_mode)
+                if (isAdmin(ircmsg.prefix.nick))
                 {
-                    for (size_t i = 0; i < parts.size(); i++)
+                    std::string targetChan = extractChan(msgtext.substr(7));
+                    if (!targetChan.empty())
                     {
-                        std::cout << "[DEBUG] Command part " << i << ": " << parts[i] << '\n';
-                    }
-                }
-
-                if (parts.size() == 1)
-                {
-                    if (parts[0] == "help")
-                    {
-                        std::string helpMessage = "Usage: .ip <ip> || <host> [key]\n";
-                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :" + helpMessage + "\r\n");
-                        std::string logentry = "[i] Help message sent to " + ircmsg.prefix.nick;                    
-                        logWrite(logentry);
+                        updateChanNames(targetChan);
+                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Updating user list for " + targetChan + "\r\n");
                     }
                     else
                     {
-                        std::string hostName = parts[0];
-                        std::vector<std::string> infoVect = getIpAddr(hostName);
-                        if (infoVect.size() == 1)
+                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Invalid channel name.\r\n");
+                    }
+                }
+                else
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :You are not an admin!\r\n");
+                }
+            }
+
+            else if (msgtext.substr(0, 4) == ".ip ") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip host
+            {
+                logWrite("[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext);
+                std::vector<std::string> ip_args = splitStringBySpaces(msgtext.substr(4));
+
+                if (ip_args.size() == 1)
+                {
+                    std::string hostName = ip_args[0];
+                    std::vector<std::string> infoVect = getIpAddr(hostName);
+                    if (infoVect.size() == 1)
+                    {
+                        std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
+                        sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                        logWrite("[i] Bot reply: " + botReply);
+                    }
+                    else if (infoVect.size() > 1)
+                    {
+                        std::string replyHeader = "IPs for " + hostName + ": ";
+                        std::vector<std::string> replyBody;
+                        replyBody.push_back(replyHeader);
+                        for (size_t i = 0; i < infoVect.size(); i++)
                         {
-                            std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
-                            sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                            logWrite("[i] Bot reply: " + botReply);
+                            replyBody.push_back(infoVect[i]);
                         }
-                        else if (infoVect.size() > 1)
+                        std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
+                        for (size_t i = 0; i < packedIpAddr.size(); i++)
                         {
-                            std::string replyHeader = "IPs for " + hostName + ": ";
-                            std::vector<std::string> replyBody;
-                            replyBody.push_back(replyHeader);
-                            for (size_t i = 0; i < infoVect.size(); i++)
-                            {
-                                replyBody.push_back(infoVect[i]);
-                            }
-                            std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                            for (size_t i = 0; i < packedIpAddr.size(); i++)
-                            {
-                                sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                                logWrite("[i] Sent packed IPs to " + replydest);
-                            }
+                            sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                            logWrite("[i] Sent packed IPs to " + replydest);
                         }
                     }
                 }
             }
+            else if (msgtext.substr(0, 5) == ".loc ")
+            {}
         }
         // Можно добавлять другие команды...
+    }
+
+    void updateChanNames(const std::string &chanName)
+    {
+        // Проверяем, существует ли канал в векторе channels
+        auto it = std::find_if(channels.begin(), channels.end(),
+                               [&chanName](const IRCChan &c)
+                               { return c.name == chanName; });
+
+        if (it == channels.end())
+        {
+            logWrite("[-] Cannot update names: channel " + chanName + " not found in internal list");
+            return;
+        }
+
+        // Очищаем список пользователей и сбрасываем флаг
+        it->users.clear();
+        it->userCount = 0;
+        it->isJoined = false; // Будет снова установлен при 366
+
+        // Отправляем команду NAMES
+        std::string namesCmd = "NAMES " + chanName + "\r\n";
+        sendToServer(namesCmd);
+        logWrite("[i] Sent NAMES request for " + chanName);
     }
 };
 

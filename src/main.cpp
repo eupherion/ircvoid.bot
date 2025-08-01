@@ -984,9 +984,12 @@ private:
                                     if (user.host.find("in-addr") == std::string::npos)
                                     {
                                         std::vector<std::string> user_ip = getIpAddr(user.host);
-                                        std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
-                                        std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is located at " + ip_info + "\x01\r\n";
-                                        sendToServer(rpl_info);
+                                        if (!user_ip.empty())
+                                        {
+                                            std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
+                                            std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is located at " + ip_info + "\x01\r\n";
+                                            sendToServer(rpl_info);
+                                        }
                                     }
                                     else
                                     {

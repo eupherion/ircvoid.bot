@@ -10,15 +10,15 @@ ircBotUser = "cbot"               # Имя пользователя бота
 ircBotNick = "CxxBot"             # Основной ник бота
 ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
 ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
-ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны)
-ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот
+ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
+ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
 ircBotAdmi = "const, aesh"        # Ники администраторов бота
-ircBotAcon = false                # Флаг автозапуска (true/false)
+ircBotAcon = false                # Флаг автозапуска (true/false) - подключаться ли при старте
 ircBotCsym = "."                  # Символ команды бота
-ircBotRcon = ""                   # Сообщения серверу при соединении
+ircBotRcon = ""                   # Сообщения серверу при соединении 
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-ipInfToken = "xxxxxxxxxxxxxx"	  # Токен сервиса ipinfo.io
-debugMode = false                 # Флаг отладочного режима
+ipInfToken = "xxxxxxxxxxxxxx"	  # Токен сервиса ipinfo.io (получить на https://ipinfo.io/ )
+debugMode = false                 # Флаг отладочного режима (verbose mode)
 logFileName = "ircbot.log"        # Имя лог-файла бота в директории ./log

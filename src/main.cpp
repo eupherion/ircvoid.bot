@@ -990,6 +990,10 @@ private:
                                             std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is located at " + ip_info + "\x01\r\n";
                                             sendToServer(rpl_info);
                                         }
+                                        else
+                                        {
+                                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " host not resoved\r\n");
+                                        }
                                     }
                                     else
                                     {

@@ -32,7 +32,7 @@
 - `g++` или `clang++`
 - `Boost.Asio`, `Boost.System`, `Boost.Filesystem`
 - `libcurl` (для HTTP-запросов к `ipinfo.io`)
-- `make` (опционально)
+- `make` (для сборки через Makefile)
 
 ### Установка зависимостей (Ubuntu/Debian)
 
@@ -43,20 +43,43 @@ sudo apt install build-essential libboost-all-dev libcurl4-openssl-dev clang
 
 ### Сборка
 
+Проект поставляется с `Makefile`, что упрощает сборку.
+
+#### Вариант 1: Сборка через `make` (рекомендуется)
+
 ```bash
 git clone https://github.com/eupherion/ircbind.info.git
 cd ircbind.info
+make
+```
 
+Бот будет собран с `clang++` (по умолчанию в `Makefile`). Выходной файл — `bot`.
+
+#### Вариант 2: Сборка вручную
+
+Для сборки вручную используйте:
+
+```bash
 # Сборка с помощью clang++
 clang++ -std=c++17 -O2 main.cpp config.cpp ipinfo.cpp \
-        -o ircbot \
+        -o bot \
         -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
 
 # Или с g++
 g++ -std=c++17 -O2 main.cpp config.cpp ipinfo.cpp \
-    -o ircbot \
+    -o bot \
     -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
 ```
+
+> 🔧 **Примечание:** В `Makefile` используется `clang++`. Чтобы переключиться на `g++`, раскомментируйте строку `CC=g++ -std=c++17` и закомментируйте `CC=clang++ -std=c++17`.
+
+#### Очистка
+
+```bash
+make clean
+```
+
+Удаляет объектные файлы и исполняемый файл.
 
 ---
 
@@ -103,7 +126,7 @@ logFileName = "ircbot.log"        # Имя лог-файла бота в дир�
 ### Базовый запуск
 
 ```bash
-./ircbot
+./bot
 ```
 
 Бот попытается загрузить конфиг из `config.toml` в текущей директории.
@@ -111,7 +134,7 @@ logFileName = "ircbot.log"        # Имя лог-файла бота в дир�
 ### Запуск с указанием конфигурации
 
 ```bash
-./ircbot myconfig.toml
+./bot myconfig.toml
 ```
 
 ---
@@ -180,7 +203,7 @@ MIT License — см. файл `LICENSE`.
 ## 8) Автор
 
 **eupherion**  
-GitHub: [@eupherion](https://github.com/eupherion)  
+GitHub: [@eupherion](https://github.com/eupherion)
 
 ---
 

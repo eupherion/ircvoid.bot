@@ -755,6 +755,20 @@ private:
         {
             std::string mtarget = ircmsg.params[0];
             std::string msgtext = ircmsg.trailing;
+            std::string command = "";
+            if (!msgtext.empty() &&
+                msgtext[0] == client.command_symbol &&
+                msgtext.size() > 1)
+            {
+                // Разбиваем строку на слова
+                std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(1));
+
+                if (!parts.empty())
+                {
+                    command = parts[0]; // первое слово после символа команды
+                }
+            }
+
             if (feature.debug_mode)
             {
                 std::cout << "[DEBUG]: ircmsg.prefix: " << ircmsg.prefix.nick << "!" << ircmsg.prefix.ident << "@" << ircmsg.prefix.host << std::endl;
@@ -773,7 +787,7 @@ private:
                       << ": " << msgtext << std::endl;
 
             // Пример реакции на "hi"
-            if (msgtext == ".hi")
+            if (command == "hi")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
@@ -792,7 +806,7 @@ private:
                 }
             }
 
-            else if (msgtext.size() >= 5 && msgtext.substr(0, 5) == ".quit")
+            else if (command == "quit")
             {
                 if (client.admins.empty())
                 {
@@ -832,7 +846,7 @@ private:
                 }
             }
 
-            else if (msgtext.substr(0, 6) == ".join ")
+            else if (command == "join")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
@@ -855,7 +869,7 @@ private:
                 }
             }
 
-            else if (msgtext.substr(0, 5) == ".part")
+            else if (command == "part")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
@@ -914,7 +928,7 @@ private:
                 }
             }
 
-            else if (msgtext.substr(0, 7) == ".names ")
+            else if (command == "names")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
@@ -935,7 +949,7 @@ private:
                 }
             }
 
-            else if (msgtext.substr(0, 4) == ".ip ") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip host
+            else if (command == "ip") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip host
             {
                 logWrite("[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext);
                 std::vector<std::string> ip_args = splitStringBySpaces(msgtext.substr(4));
@@ -968,7 +982,7 @@ private:
                     }
                 }
             }
-            else if (msgtext.substr(0, 5) == ".loc ")
+            else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc host
             {
                 std::string loc_args = msgtext.substr(5);
                 if (!loc_args.empty())

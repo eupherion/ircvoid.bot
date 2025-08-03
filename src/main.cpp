@@ -1083,6 +1083,7 @@ private:
         // Отправляем команду NAMES
         std::string namesCmd = "NAMES " + chanName + "\r\n";
         sendToServer(namesCmd);
+        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Updating NAMES for " + chanName + "\r\n");
         logWrite("[i] Sent NAMES request for " + chanName);
     }
 };

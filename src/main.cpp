@@ -816,14 +816,14 @@ private:
                 if (isAdmin(ircmsg.prefix.nick))
                 {
                     std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
-                    std::string chans_joined = "";
+                    std::string currentchans = "";
                     for (auto &chan : channels)
                     {
-                        chans_joined += chan.name + " [" + std::to_string(chan.users.size()) + "] ";
+                        currentchans += chan.name + " [" + std::to_string(chan.users.size()) + "] ";
                     }
-                    if (!chans_joined.empty())
+                    if (!currentchans.empty())
                     {
-                        sendToServer("PRIVMSG " + replydest + " :Joined channels: " + chans_joined + "\r\n");
+                        sendToServer("PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n");
                     }
                 }
             }
@@ -838,9 +838,15 @@ private:
                 else
                 {
                     std::string reason = "";
-                    if (msgtext.size() > 4)
+                    if (!cmdargs.empty())
                     {
-                        reason = msgtext.substr(5);
+                        for(const auto &arg : cmdargs)
+                        {
+                            if (!arg.empty())
+                            {
+                                reason += arg + " ";
+                            }
+                        }
                     }
                     if (isAdmin(ircmsg.prefix.nick))
                     {
@@ -875,7 +881,7 @@ private:
                     std::string chanjoin = "";
                     if (!cmdargs.empty())
                     {
-                        chanjoin = extractChan(msgtext.substr(6));
+                        chanjoin = extractChan(cmdargs[0]);
                         if (!chanjoin.empty())
                         {
                             sendToServer("JOIN " + chanjoin + "\r\n");
@@ -953,15 +959,32 @@ private:
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
-                    std::string targetChan = extractChan(msgtext.substr(7));
-                    if (!targetChan.empty())
+                    if (!cmdargs.empty())
                     {
-                        updateChanNames(targetChan);
-                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Updating user list for " + targetChan + "\r\n");
+                        for (const auto &arg : cmdargs)
+                        {
+                            if (!arg.empty())
+                            {
+                                std::string chanupdate = extractChan(arg);
+                                if (!chanupdate.empty())
+                                {
+                                    updateChanNames(chanupdate);
+                                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                                }
+                                else
+                                {
+                                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :Invalid channel name:" + arg + "\r\n");
+                                }
+                            }
+                        }
                     }
                     else
                     {
-                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Invalid channel name.\r\n");
+                        for (const auto &chan : channels)
+                        {
+                            updateChanNames(chan.name);
+                            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        }
                     }
                 }
                 else
@@ -1048,6 +1071,7 @@ private:
 
         if (it == channels.end())
         {
+            sendToServer("NOTICE " + ircmsg.prefix.nick + " :Channel " + chanName + " not found\r\n");
             logWrite("[-] Cannot update names: channel " + chanName + " not found in internal list");
             return;
         }

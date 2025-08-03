@@ -753,19 +753,24 @@ private:
         // Пример реакции на PRIVMSG
         else if (ircmsg.command == "PRIVMSG")
         {
-            std::string mtarget = ircmsg.params[0];
-            std::string msgtext = ircmsg.trailing;
+            std::string msgtext = boost::algorithm::trim_copy(ircmsg.trailing);
             std::string command = "";
-            if (!msgtext.empty() &&
-                msgtext[0] == client.command_symbol &&
-                msgtext.size() > 1)
+            std::vector<std::string> cmdargs = {};
+            if (!msgtext.empty() && msgtext[0] == client.command_symbol)
             {
                 // Разбиваем строку на слова
-                std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(1));
+                std::vector<std::string> parts = splitStringBySpaces(msgtext.substr(1)); // без символа команды
 
                 if (!parts.empty())
                 {
-                    command = parts[0]; // первое слово после символа команды
+                    command = parts[0]; // первая часть - команда
+                    if (parts.size() > 1)
+                    {
+                        for (size_t i = 1; i < parts.size(); ++i)
+                        {
+                            cmdargs.push_back(parts[i]);
+                        }
+                    }
                 }
             }
 
@@ -781,19 +786,36 @@ private:
                 {
                     std::cout << "[DEBUG]: ircmsg.trailing: " << ircmsg.trailing << std::endl;
                 }
+                if (!command.empty())
+                {
+                    if (!cmdargs.empty())
+                    {
+                        std::cout << "[DEBUG]: command: [" << command << ']' << std::endl;
+                        std::cout << "[DEBUG]: cmdargs: ";
+                        for (const auto &arg : cmdargs)
+                        {
+                            if (!arg.empty())
+                            {
+                                std::cout << '[' << arg << ']';
+                            }
+                        }
+                        std::cout << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "[DEBUG]: command: [" << command << "] (no args)" << std::endl;
+                    }
+                }
             }
             std::cout << "[MESSAGE] From " << ircmsg.prefix.nick
-                      << " to " << mtarget
+                      << " to " << ircmsg.params[0]
                       << ": " << msgtext << std::endl;
 
-            // Пример реакции на "hi"
-            if (command == "hi")
+            if (command == "chan")
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
                     std::cout << "[i] Admin " << ircmsg.prefix.nick << " command received\n";
-                    std::string reply = "PRIVMSG " + replydest + " :Hello, " + ircmsg.prefix.nick + "! I'm your bot.\r\n";
-                    sendToServer(reply);
                     std::string chans_joined = "";
                     for (auto &chan : channels)
                     {
@@ -850,17 +872,22 @@ private:
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
-                    std::string join_arg = "";
-                    if (msgtext.size() > 6)
+                    std::string chanjoin = "";
+                    if (!cmdargs.empty())
                     {
-                        join_arg = extractChan(msgtext.substr(6));
-                        if (!join_arg.empty())
+                        chanjoin = extractChan(msgtext.substr(6));
+                        if (!chanjoin.empty())
                         {
-                            sendToServer("JOIN " + join_arg + "\r\n");
-                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + join_arg + "\x01\r\n");
-                            sendToServer("WHO " + join_arg + "\r\n");
-                            logWrite("[i] Joining channel " + join_arg + " by " + ircmsg.prefix.nick);
+                            sendToServer("JOIN " + chanjoin + "\r\n");
+                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + chanjoin + "\x01\r\n");
+                            sendToServer("WHO " + chanjoin + "\r\n");
+                            logWrite("[i] Joining channel " + chanjoin + " by " + ircmsg.prefix.nick);
                         }
+                    }
+                    else
+                    {
+                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :No channel specified.\r\n");
+                        sendToServer("PRIVMSG " + replydest + " : Usage: .join #channel\r\n");
                     }
                 }
                 else
@@ -873,17 +900,11 @@ private:
             {
                 if (isAdmin(ircmsg.prefix.nick))
                 {
-                    std::string part_arg = "";
-                    std::string channel_to_part;
-
-                    if (msgtext.size() > 6)
+                    std::string chanpart = "";
+                    if (!cmdargs.empty())
                     {
-                        part_arg = extractChan(msgtext.substr(6));
-                        if (!part_arg.empty())
-                        {
-                            channel_to_part = part_arg;
-                        }
-                        else
+                        chanpart = extractChan(cmdargs[0]);
+                        if (chanpart.empty())
                         {
                             sendToServer("NOTICE " + ircmsg.prefix.nick + " :Invalid channel name.\r\n");
                             return;
@@ -894,7 +915,7 @@ private:
                         // Если аргумента нет, покидаем текущий канал
                         if (ircmsg.params[0].find('#') != std::string::npos)
                         {
-                            channel_to_part = ircmsg.params[0];
+                            chanpart = ircmsg.params[0];
                         }
                         else
                         {
@@ -904,22 +925,22 @@ private:
                     }
 
                     // 1. Отправляем команды
-                    sendToServer("PRIVMSG " + channel_to_part + " :\x01" + "ACTION parts " + channel_to_part + "\x01\r\n");
-                    sendToServer("PART " + channel_to_part + "\r\n");
-                    logWrite("[i] Parting channel " + channel_to_part + " by " + ircmsg.prefix.nick);
+                    sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + chanpart + "\x01\r\n");
+                    sendToServer("PART " + chanpart + "\r\n");
+                    logWrite("[i] Parting channel " + chanpart + " by " + ircmsg.prefix.nick);
 
                     // 2. Удаляем канал из вектора channels
                     auto &chans = channels;
                     auto it = std::find_if(chans.begin(), chans.end(),
-                                           [&channel_to_part](const IRCChan &c)
+                                           [&chanpart](const IRCChan &c)
                                            {
-                                               return c.name == channel_to_part;
+                                               return c.name == chanpart;
                                            });
 
                     if (it != chans.end())
                     {
                         chans.erase(it);
-                        logWrite("[-] Removed channel " + channel_to_part + " from internal list.");
+                        logWrite("[-] Removed channel " + chanpart + " from internal list.");
                     }
                 }
                 else
@@ -948,44 +969,10 @@ private:
                     sendToServer("NOTICE " + ircmsg.prefix.nick + " :You are not an admin!\r\n");
                 }
             }
-
-            else if (command == "ip") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip host
+            else if (command == "loc" || command == "ip") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc host
             {
-                logWrite("[i] Command .ip received by " + ircmsg.prefix.nick + " :" + msgtext);
-                std::vector<std::string> ip_args = splitStringBySpaces(msgtext.substr(4));
-
-                if (ip_args.size() == 1)
-                {
-                    std::string hostName = ip_args[0];
-                    std::vector<std::string> infoVect = getIpAddr(hostName);
-                    if (infoVect.size() == 1)
-                    {
-                        std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
-                        sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                        logWrite("[i] Bot reply: " + botReply);
-                    }
-                    else if (infoVect.size() > 1)
-                    {
-                        std::string replyHeader = "IPs for " + hostName + ": ";
-                        std::vector<std::string> replyBody;
-                        replyBody.push_back(replyHeader);
-                        for (size_t i = 0; i < infoVect.size(); i++)
-                        {
-                            replyBody.push_back(infoVect[i]);
-                        }
-                        std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                        for (size_t i = 0; i < packedIpAddr.size(); i++)
-                        {
-                            sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                            logWrite("[i] Sent packed IPs to " + replydest);
-                        }
-                    }
-                }
-            }
-            else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc host
-            {
-                std::string loc_args = msgtext.substr(5);
-                if (!loc_args.empty())
+                logWrite("[i] Command " + command + " received by " + ircmsg.prefix.nick + " :" + msgtext);
+                if (!cmdargs.empty())
                 {
                     for (const auto &chan : channels)
                     {
@@ -993,7 +980,7 @@ private:
                         {
                             for (const auto &user : chan.users)
                             {
-                                if (user.nick == loc_args)
+                                if (user.nick == cmdargs[0])
                                 {
                                     if (user.host.find("in-addr") == std::string::npos)
                                     {
@@ -1001,7 +988,7 @@ private:
                                         if (!user_ip.empty())
                                         {
                                             std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
-                                            std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is located at " + ip_info + "\x01\r\n";
+                                            std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is " + ip_info + "\x01\r\n";
                                             sendToServer(rpl_info);
                                         }
                                         else
@@ -1016,6 +1003,32 @@ private:
                                     }
                                     logWrite("[i] Sent location command to " + replydest);
                                     break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            std::vector<std::string> infoVect = getIpAddr(cmdargs[0]);
+                            if (infoVect.size() == 1)
+                            {
+                                std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
+                                sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                                logWrite("[i] Bot reply: " + botReply);
+                            }
+                            else if (infoVect.size() > 1)
+                            {
+                                std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
+                                std::vector<std::string> replyBody;
+                                replyBody.push_back(replyHeader);
+                                for (size_t i = 0; i < infoVect.size(); i++)
+                                {
+                                    replyBody.push_back(infoVect[i]);
+                                }
+                                std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
+                                for (size_t i = 0; i < packedIpAddr.size(); i++)
+                                {
+                                    sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                                    logWrite("[i] Sent packed IPs to " + replydest);
                                 }
                             }
                         }

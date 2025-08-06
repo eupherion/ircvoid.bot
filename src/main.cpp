@@ -559,7 +559,7 @@ private:
             }
         }
 
-        else if (ircmsg.command == "353") // :server 353 yournick = #channel :nick1 nick2 ...
+        else if (ircmsg.command == "353") // [RPL_NAMREPLY] :server 353 yournick = #channel :nick1 nick2 ...
         {
             if (ircmsg.params[0] == client.nickname && ircmsg.params[2].find('#') != std::string::npos)
             {
@@ -746,6 +746,24 @@ private:
                         logWrite("[-] User " + kicked + " was kicked from " + channel);
                     }
                     break;
+                }
+            }
+        }
+
+        else if (ircmsg.command == "NICK")
+        {
+            std::string oldnick = ircmsg.prefix.nick;
+            std::string newnick = ircmsg.trailing;
+            for (auto &chan : channels)
+            {
+                for (auto &user : chan.users)
+                {
+                    if (user.nick == oldnick)
+                    {
+                        user.nick = newnick;
+                        logWrite("[i] Nick changed from " + oldnick + " to " + newnick);
+                        break;
+                    }
                 }
             }
         }

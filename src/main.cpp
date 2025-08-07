@@ -500,12 +500,10 @@ private:
 
             for (size_t i = 0; i < client.channels.size(); i++)
             {
-                std::string joinMessage = "JOIN " + client.channels[i] + "\r\n";
-                sendToServer(joinMessage);
+                logWrite("[i] Joining channel " + client.channels[i]);
+                sendToServer("JOIN " + client.channels[i] + "\r\n");
                 sendToServer("WHO " + client.channels[i] + "\r\n");
-                std::string logentry = "[i] Joining channel " + client.channels[i];
-                logWrite(logentry);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
         }
 
@@ -513,19 +511,19 @@ private:
         {
             if (ircmsg.params.size() >= 4)
             {
-                std::string channel = ircmsg.params[1];
+                std::string userchan = ircmsg.params[1];
                 std::string username = ircmsg.params[2];
                 std::string userhost = ircmsg.params[3];
                 std::string usernick = ircmsg.params[5];
-                std::string trailing = ircmsg.trailing;
+                std::string realname = ircmsg.trailing.substr(ircmsg.trailing.find(' ') + 1);
 
                 // Создаём пользователя
-                IRCUser user(usernick, username, userhost, trailing);
+                IRCUser user(usernick, username, userhost, realname);
 
                 // Находим канал и добавляем пользователя
                 for (auto &chan : channels)
                 {
-                    if (chan.name == channel)
+                    if (chan.name == userchan)
                     {
                         // Проверяем дубликат
                         auto it = std::find_if(chan.users.begin(), chan.users.end(),
@@ -539,7 +537,7 @@ private:
                             if (feature.debug_mode)
                             {
                                 std::cout << "[+] User " << user.nick << '!' << user.user << '@' << user.host
-                                          << " added to channel " << channel << std::endl;
+                                          << " (" << user.realname << ") added to channel " << userchan << std::endl;
                             }
                         }
                         else
@@ -551,7 +549,7 @@ private:
                             if (feature.debug_mode)
                             {
                                 std::cout << "[i] Updated user " << user.nick << '!' << user.user << '@' << user.host
-                                          << " in channel " << channel << std::endl;
+                                          << " (" << user.realname << ") in channel " << userchan << std::endl;
                             }
                         }
                     }
@@ -612,7 +610,7 @@ private:
             }
         }
 
-        else if (ircmsg.command == "366") // :server 366 yournick #channel :End of /NAMES list.
+        else if (ircmsg.command == "366") // [RPL_ENDOFNAMES] :server 366 yournick #channel :End of /NAMES list.
         {
             if (ircmsg.params.size() >= 2)
             {
@@ -632,7 +630,7 @@ private:
             }
         }
 
-        else if (ircmsg.command == "JOIN")
+        else if (ircmsg.command == "JOIN") // [JOIN] :nick!user@host JOIN :#channel // Пользователь присоединяется к каналу
         {
             std::string chanjoined = extractChan(ircmsg.trailing);
             std::string nick = ircmsg.prefix.nick;
@@ -651,7 +649,7 @@ private:
                     if (it == users.end())
                     {
                         // Добавляем пользователя с известными данными
-                        users.emplace_back(nick, user, host, nick); // realname = nick
+                        users.emplace_back(nick, user, host, ""); // realname = ""
                         logWrite("[+] User " + nick + " joined channel " + chanjoined);
                     }
                     else
@@ -669,7 +667,7 @@ private:
             }
         }
 
-        else if (ircmsg.command == "PART")
+        else if (ircmsg.command == "PART") // [PART] :nick!user@host PART #channel:reason // Пользователь покидает канал
         {
             std::string chanleft = ircmsg.params[0];
             std::string nick = ircmsg.prefix.nick;

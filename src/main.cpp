@@ -1073,6 +1073,10 @@ private:
                         }
                     }
                 }
+                else
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick> || <host>\r\n");
+                }
             }
         }
         // Можно добавлять другие команды...

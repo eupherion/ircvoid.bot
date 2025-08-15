@@ -42,7 +42,7 @@ std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ip
     CURLcode res;
 
     std::string ipInfoStr;
-    std::string ipReadStr;
+    std::string ipReplStr;
     std::string readbuffer;
     std::string requeststr;
 
@@ -53,87 +53,86 @@ std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ip
         {
             requeststr = "http://ipinfo.io/" + ipAddrStr + "?token=" + ipinfo_token;
             curl_easy_setopt(curl, CURLOPT_URL, requeststr.c_str());
+            // Установка функции обратного вызова для записи данных
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+
+            // Передача указателя на строку, куда будут записываться данные
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readbuffer);
+
+            // Выполнение запроса
+            res = curl_easy_perform(curl);
+
+            // Проверка результата выполнения запроса
+            if (res != CURLE_OK)
+            {
+                std::string curl_err(curl_easy_strerror(res));
+                ipInfoStr = "curl_easy_perform() failed: " + curl_err + '\n';
+            }
+            else
+            {
+                // Возврат строки с ipinfo.io
+                ipInfoStr = readbuffer;
+                // std::cout << "IP info string:\n" << ipInfoStr << '\n';
+                nlohmann::json jsonData = nlohmann::json::parse(ipInfoStr);
+
+                if (!jsonData["ip"].is_null())
+                {
+                    ipReplStr += jsonData["ip"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["hostname"].is_null())
+                {
+                    ipReplStr += jsonData["hostname"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["city"].is_null())
+                {
+                    ipReplStr += jsonData["city"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["region"].is_null())
+                {
+                    ipReplStr += jsonData["region"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["country"].is_null())
+                {
+                    ipReplStr += jsonData["country"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["loc"].is_null())
+                {
+                    ipReplStr += jsonData["loc"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["org"].is_null())
+                {
+                    ipReplStr += jsonData["org"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["postal"].is_null())
+                {
+                    ipReplStr += jsonData["postal"].get<std::string>() + ' ';
+                }
+
+                if (!jsonData["timezone"].is_null())
+                {
+                    ipReplStr += jsonData["timezone"].get<std::string>();
+                }
+            }
+            // Освобождение ресурсов
+            curl_easy_cleanup(curl);
         }
-        else
-        {
-            curl_easy_setopt(curl, CURLOPT_URL, "http://ipinfo.io/");
-        }
-
-        // Установка функции обратного вызова для записи данных
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-
-        // Передача указателя на строку, куда будут записываться данные
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readbuffer);
-
-        // Выполнение запроса
-        res = curl_easy_perform(curl);
-
-        // Проверка результата выполнения запроса
-        if (res != CURLE_OK)
-        {
-            std::string curl_err(curl_easy_strerror(res));
-            ipInfoStr = "curl_easy_perform() failed: " + curl_err + '\n';
-        }
-        else
-        {
-            // Возврат строки с ipinfo.io
-            ipInfoStr = readbuffer;
-            // std::cout << "IP info string:\n" << ipInfoStr << '\n';
-            nlohmann::json jsonData = nlohmann::json::parse(ipInfoStr);
-
-            if (!jsonData["ip"].is_null())
-            {
-                ipReadStr += jsonData["ip"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["hostname"].is_null())
-            {
-                ipReadStr += jsonData["hostname"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["city"].is_null())
-            {
-                ipReadStr += jsonData["city"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["region"].is_null())
-            {
-                ipReadStr += jsonData["region"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["country"].is_null())
-            {
-                ipReadStr += jsonData["country"].get<std::string>() + ' ';
-            }
-
-            // if (!jsonData["loc"].is_null())
-            // {
-            //     ipReadStr += jsonData["loc"].get<std::string>() + ' ';
-            // }
-
-            if (!jsonData["org"].is_null())
-            {
-                ipReadStr += jsonData["org"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["postal"].is_null())
-            {
-                ipReadStr += jsonData["postal"].get<std::string>() + ' ';
-            }
-
-            if (!jsonData["timezone"].is_null())
-            {
-                ipReadStr += jsonData["timezone"].get<std::string>();
-            }
-        }
-        // Освобождение ресурсов
-        curl_easy_cleanup(curl);
+        // else
+        // {
+        //     curl_easy_setopt(curl, CURLOPT_URL, "http://ipinfo.io/");
+        // }
     }
     else
     {
         std::cerr << "Failed to initialize libcurl." << std::endl;
     }
-    return ipReadStr;
+    return ipReplStr; // Возврат строки с ipinfo.io или пустой строки при ошибке
 }
 
 // Принимает строку с хостнеймом, возвращает вектор строк с ip адресом

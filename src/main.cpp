@@ -1106,6 +1106,28 @@ private:
                     }
                 }                  
             }
+
+            else if (command == "help")
+            {
+                if (cmdargs.empty())
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :Available commands: " + client.command_symbol + "help, " + client.command_symbol + "loc, " + client.command_symbol + "ip\r\n");
+                }
+                else if (cmdargs[0] == "loc")
+                {
+                    if (cmdargs.size() == 1)
+                    {
+                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
+                    }
+                }
+                else if (cmdargs[0] == "ip")
+                {
+                    if (cmdargs.size() == 1)
+                    {
+                        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
+                    }
+                }
+            }
         }
         // Можно добавлять другие команды...
     }

@@ -662,6 +662,7 @@ private:
                             logWrite("[i] Updated host/user for " + nick);
                         }
                     }
+                    updateChanNames(chanjoined);
                     break;
                 }
             }
@@ -701,13 +702,14 @@ private:
                             users.erase(it);
                             logWrite("[-] User " + nick + " left channel " + chanleft);
                         }
+                        updateChanNames(chanleft);
                         break;
                     }
                 }
             }
         }
 
-        else if (ircmsg.command == "QUIT")
+        else if (ircmsg.command == "QUIT") // [QUIT] :nick!user@host QUIT :reason // Пользователь выходит
         {
             std::string nick = ircmsg.prefix.nick;
 
@@ -725,7 +727,7 @@ private:
             }
         }
 
-        else if (ircmsg.command == "KICK")
+        else if (ircmsg.command == "KICK") // [KICK] :nick!user@host KICK #channel kickednick :reason // Пользователь кикнут
         {
             std::string channel = ircmsg.params[0];
             std::string kicked = ircmsg.params[1];
@@ -743,12 +745,13 @@ private:
                         users.erase(it);
                         logWrite("[-] User " + kicked + " was kicked from " + channel);
                     }
+                    updateChanNames(channel);
                     break;
                 }
             }
         }
 
-        else if (ircmsg.command == "NICK")
+        else if (ircmsg.command == "NICK") // [NICK] :nick!user@host NICK :newnick // Пользователь меняет ник
         {
             std::string oldnick = ircmsg.prefix.nick;
             std::string newnick = ircmsg.trailing;
@@ -760,14 +763,14 @@ private:
                     {
                         user.nick = newnick;
                         logWrite("[i] Nick changed from " + oldnick + " to " + newnick);
+                        updateChanNames(chan.name);
                         break;
                     }
                 }
             }
         }
 
-        // Пример реакции на PRIVMSG
-        else if (ircmsg.command == "PRIVMSG")
+        else if (ircmsg.command == "PRIVMSG") // [PRIVMSG] :nick!user@host PRIVMSG #channel :message // Пользователь пишет в канал
         {
             std::string msgtext = boost::algorithm::trim_copy(ircmsg.trailing);
             std::string command = "";
@@ -1008,91 +1011,116 @@ private:
                     sendToServer("NOTICE " + ircmsg.prefix.nick + " :You are not an admin!\r\n");
                 }
             }
-            else if (command == "loc" || command == "ip") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc host
+
+            else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc host
             {
                 logWrite("[i] Command " + command + " received by " + ircmsg.prefix.nick + " :" + msgtext);
+                std::string loc_reply;
+                bool found = false;
                 if (!cmdargs.empty())
                 {
                     for (const auto &chan : channels)
                     {
-                        if (chan.name == ircmsg.params[0])
+                        for (const auto &user : chan.users)
                         {
-                            for (const auto &user : chan.users)
+                            if (user.nick == cmdargs[0])
                             {
-                                if (user.nick == cmdargs[0])
+                                found = true;
+                                if (user.host.find("in-addr") == std::string::npos)
                                 {
-                                    if (user.host.find("in-addr") == std::string::npos)
+                                    std::vector<std::string> user_ip = getIpAddr(user.host);
+                                    if (!user_ip.empty())
                                     {
-                                        std::vector<std::string> user_ip = getIpAddr(user.host);
-                                        if (!user_ip.empty())
+                                        std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
+                                        std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
+                                        if (!ip_info.empty())
                                         {
-                                            std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
-                                            std::string rpl_info = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is " + ip_info + "\x01\r\n";
-                                            sendToServer(rpl_info);
+                                            loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is " + ip_info + "\x01\r\n";
+                                            std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                         }
                                         else
                                         {
-                                            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " host not resoved\r\n");
+                                            loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
+                                            std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                         }
                                     }
                                     else
                                     {
-                                        std::string host_hidden = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " host is hidden\r\n";
-                                        sendToServer(host_hidden);
+                                        loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
+                                        std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                     }
-                                    logWrite("[i] Sent location command to " + replydest);
-                                    break;
                                 }
+                                else
+                                {
+                                    loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": host " + user.host + " is hidden\r\n";
+                                    std::cout << "[i] Hidden host: " << user.host << std::endl;
+                                    std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
+                                }
+                                //logWrite("[i] Sent location command to " + replydest);
+                                break;
                             }
                         }
-                        else
+                        if (found)
                         {
-                            std::vector<std::string> infoVect = getIpAddr(cmdargs[0]);
-                            if (infoVect.size() == 1)
+                            if (!loc_reply.empty())
                             {
-                                std::string botReply = getIpInfo(infoVect[0], feature.ip_info_token);
-                                sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                                logWrite("[i] Bot reply: " + botReply);
+                                sendToServer(loc_reply);
+                                logWrite("[i] Sent location reply to " + replydest + ": " + loc_reply);
                             }
-                            else if (infoVect.size() > 1)
-                            {
-                                std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
-                                std::vector<std::string> replyBody;
-                                replyBody.push_back(replyHeader);
-                                for (size_t i = 0; i < infoVect.size(); i++)
-                                {
-                                    replyBody.push_back(infoVect[i]);
-                                }
-                                std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                                for (size_t i = 0; i < packedIpAddr.size(); i++)
-                                {
-                                    sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                                    logWrite("[i] Sent packed IPs to " + replydest);
-                                }
-                            }
+                            break;
                         }
                     }
                 }
                 else
                 {
-                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick> || <host>\r\n");
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
                 }
+            }
+
+            else if (command == "ip")
+            {
+                if (!cmdargs.empty())
+                {
+                    std::vector<std::string> ipvect = getIpAddr(cmdargs[0]);
+                    if (ipvect.size() == 1)
+                    {
+                        std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
+                        sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                        logWrite("[i] Bot reply: " + botReply);
+                    }
+                    else if (ipvect.size() > 1)
+                    {
+                        std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
+                        std::vector<std::string> replyBody;
+                        replyBody.push_back(replyHeader);
+                        for (size_t i = 0; i < ipvect.size(); i++)
+                        {
+                            replyBody.push_back(ipvect[i]);
+                        }
+                        std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
+                        for (size_t i = 0; i < packedIpAddr.size(); i++)
+                        {
+                            sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                            logWrite("[i] Sent packed IPs to " + replydest);
+                        }
+                    }
+                }                  
             }
         }
         // Можно добавлять другие команды...
     }
 
-    void updateChanNames(const std::string &chanName)
+    void updateChanNames(const std::string &chname)
     {
         // Проверяем, существует ли канал в векторе channels
         auto it = std::find_if(channels.begin(), channels.end(),
-                               [&chanName](const IRCChan &c)
-                               { return c.name == chanName; });
+                               [&chname](const IRCChan &c)
+                               { return c.name == chname; });
 
         if (it == channels.end())
         {
-            sendToServer("NOTICE " + ircmsg.prefix.nick + " :Channel " + chanName + " not found\r\n");
-            logWrite("[-] Cannot update names: channel " + chanName + " not found in internal list");
+            sendToServer("NOTICE " + ircmsg.prefix.nick + " :Channel " + chname + " not found\r\n");
+            logWrite("[-] Cannot update names: channel " + chname + " not found in internal list");
             return;
         }
 
@@ -1100,11 +1128,8 @@ private:
         it->users.clear();
         it->isJoined = false; // Будет снова установлен при 366
 
-        // Отправляем команду NAMES
-        std::string namesCmd = "NAMES " + chanName + "\r\n";
-        sendToServer(namesCmd);
-        sendToServer("NOTICE " + ircmsg.prefix.nick + " :Updating NAMES for " + chanName + "\r\n");
-        logWrite("[i] Sent NAMES request for " + chanName);
+        sendToServer("NAMES " + chname + "\r\n"); // Запрашиваем имена канала
+        logWrite("[i] Sent NAMES request for " + chname);
     }
 };
 

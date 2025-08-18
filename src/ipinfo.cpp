@@ -70,8 +70,7 @@ std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ip
             }
             else
             {
-                // Возврат строки с ipinfo.io
-                ipInfoStr = readbuffer;
+                ipInfoStr = readbuffer; // Возврат строки с ipinfo.io
                 // std::cout << "IP info string:\n" << ipInfoStr << '\n';
                 nlohmann::json jsonData = nlohmann::json::parse(ipInfoStr);
 
@@ -123,10 +122,6 @@ std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ip
             // Освобождение ресурсов
             curl_easy_cleanup(curl);
         }
-        // else
-        // {
-        //     curl_easy_setopt(curl, CURLOPT_URL, "http://ipinfo.io/");
-        // }
     }
     else
     {

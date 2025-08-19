@@ -396,7 +396,7 @@ private:
         // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
         std::string replydest = "";
 
-        if (ircmsg.params[0].find("#") != std::string::npos)
+        if (ircmsg.params[0].find("#") != std::string::npos) // добавить PRIVMSG к условию
         {
             replydest = ircmsg.params[0];
         }

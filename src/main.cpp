@@ -412,54 +412,48 @@ private:
             sendToServer(pong);
         }
 
-        else if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01')
+        else if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01') // CTCP
         {
             std::string ctcpCommand = ircmsg.trailing.substr(1, ircmsg.trailing.size() - 2);
             logWrite("[+] Got CTCP: " + ctcpCommand + " from " + ircmsg.prefix.nick);
 
-            if (ctcpCommand.find("VERSION") != std::string::npos)
+            if (ctcpCommand.find("VERSION") != std::string::npos) // CTCP VERSION
             {
-                if (replydest.empty())
+                if (!ircmsg.prefix.nick.empty())
                 {
-                    std::cout << "[DEBUG] Target is empty\n";
-                    return; // Пропускаем, если target пуст
-                }
-                else
-                {
-                    sendToServer("NOTICE " + replydest + " :\x01VERSION " + client.dcc_version + "\x01\r\n");
-                    logWrite("[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + replydest);
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01VERSION " + client.dcc_version + "\x01\r\n");
+                    logWrite("[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + ircmsg.prefix.nick);
                 }
             }
 
-            if (ctcpCommand.find("PING") != std::string::npos)
+            else if (ctcpCommand.find("PING") != std::string::npos) // CTCP PING
             {
-                if (replydest.empty())
+                if (!ircmsg.prefix.nick.empty())
                 {
-                    std::cout << "[DEBUG] Reply destination is empty\n";
-                    return; // Пропускаем, если reply destination пуст
-                }
-                else
-                {
-                    sendToServer("NOTICE " + replydest + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n");
-                    logWrite("[+] Sent CTCP PING to " + replydest);
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01PING " + ircmsg.trailing.substr(6) + "\x01\r\n");
+                    logWrite("[+] Sent CTCP PING to " + ircmsg.prefix.nick);
                 }
             }
 
-            if (ctcpCommand.find("TIME") != std::string::npos)
+            else if (ctcpCommand.find("TIME") != std::string::npos) // CTCP TIME
             {
-                if (replydest.empty())
-                {
-                    std::cout << "[DEBUG] Reply destination is empty\n";
-                    return; // Пропускаем, если reply destination пуст
-                }
-                else
+                if (!ircmsg.prefix.nick.empty())
                 {
                     // Получаем текущее время
                     auto now = std::chrono::system_clock::now();
                     auto timestamp = std::chrono::system_clock::to_time_t(now);
 
-                    sendToServer("NOTICE " + replydest + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n");
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n");
                     logWrite("[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick);
+                }
+            }
+
+            else if (ctcpCommand.find("CLIENTINFO") != std::string::npos) // CTCP CLIENTINFO
+            {
+                if (!ircmsg.prefix.nick.empty())
+                {
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01CLIENTINFO VERSION PING TIME CLIENTINFO\x01\r\n");
+                    logWrite("[+] Sent CTCP CLIENTINFO to " + ircmsg.prefix.nick);
                 }
             }
         }
@@ -495,21 +489,21 @@ private:
                 std::string logentry = "[+] Sent NICKSERV AUTH";
                 if (rusnetAuth) {logentry += " (RusNet)";}
                 logWrite(logentry);
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                //std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
 
             for (size_t i = 0; i < client.channels.size(); i++)
             {
                 logWrite("[i] Joining channel " + client.channels[i]);
                 sendToServer("JOIN " + client.channels[i] + "\r\n");
-                sendToServer("WHO " + client.channels[i] + "\r\n");
+                // sendToServer("WHO " + client.channels[i] + "\r\n");
                 //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             }
         }
 
-        else if (ircmsg.command == "352") // [RPL_WHOREPLY] :server 352 Alice #chat bob bhost irc.example.org Bobby H :0 Bob Smith
+        else if (ircmsg.command == "352") // [RPL_WHOREPLY] :server 352 YourNick #channel bob bob@host.org ircd.example.org Bobby H :0 Bob Smith
         {
-            if (ircmsg.params.size() >= 4)
+            if (!ircmsg.params.empty())
             {
                 std::string userchan = ircmsg.params[1];
                 std::string username = ircmsg.params[2];
@@ -537,7 +531,7 @@ private:
                             if (feature.debug_mode)
                             {
                                 std::cout << "[+] User " << user.nick << '!' << user.user << '@' << user.host
-                                          << " (" << user.realname << ") added to channel " << userchan << std::endl;
+                                          << " (" << user.realname << ") saved to internal list of channel " << userchan << std::endl;
                             }
                         }
                         else
@@ -549,7 +543,7 @@ private:
                             if (feature.debug_mode)
                             {
                                 std::cout << "[i] Updated user " << user.nick << '!' << user.user << '@' << user.host
-                                          << " (" << user.realname << ") in channel " << userchan << std::endl;
+                                          << " (" << user.realname << ") in internal list of channel " << userchan << std::endl;
                             }
                         }
                     }
@@ -624,6 +618,9 @@ private:
                         channel.isJoined = true;
                         std::cout << "[+] Channel " << channelName
                                   << " names saved. There are " << channel.users.size() << " users." << std::endl;
+                        logWrite("[+] Channel " + channelName + " joined, channel names saved. ");
+                        sendToServer("WHO " + channelName + "\r\n");
+                        logWrite("[+] Sent WHO " + channelName + " to server. ");
                         break;
                     }
                 }

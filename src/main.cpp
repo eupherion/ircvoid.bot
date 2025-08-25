@@ -442,9 +442,12 @@ private:
                     // Получаем текущее время
                     auto now = std::chrono::system_clock::now();
                     auto timestamp = std::chrono::system_clock::to_time_t(now);
+                    std::string time_str = std::ctime(&timestamp);
 
-                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n");
-                    logWrite("[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick);
+                    //sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01TIME " + std::to_string(timestamp) + "\x01\r\n");
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01TIME " + time_str + "\x01\r\n");
+                    //logWrite("[+] Sent CTCP TIME: " + std::to_string(timestamp) + " to " + ircmsg.prefix.nick);
+                    logWrite("[+] Sent CTCP TIME: " + time_str + " to " + ircmsg.prefix.nick);
                 }
             }
 
@@ -452,7 +455,7 @@ private:
             {
                 if (!ircmsg.prefix.nick.empty())
                 {
-                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01CLIENTINFO VERSION PING TIME CLIENTINFO\x01\r\n");
+                    sendToServer("NOTICE " + ircmsg.prefix.nick + " :\x01" + "CLIENTINFO VERSION PING TIME CLIENTINFO\x01\r\n");
                     logWrite("[+] Sent CTCP CLIENTINFO to " + ircmsg.prefix.nick);
                 }
             }
@@ -1032,24 +1035,24 @@ private:
                                         std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
                                         if (!ip_info.empty())
                                         {
-                                            loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + " is " + ip_info + "\x01\r\n";
+                                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " is " + ip_info + "\r\n";
                                             std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                         }
                                         else
                                         {
-                                            loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
+                                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
                                             std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                         }
                                     }
                                     else
                                     {
-                                        loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
+                                        loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
                                         std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                     }
                                 }
                                 else
                                 {
-                                    loc_reply = "PRIVMSG " + replydest + " :\x01" + "ACTION " + user.nick + ": host " + user.host + " is hidden\r\n";
+                                    loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": host " + user.host + " is hidden\r\n";
                                     std::cout << "[i] Hidden host: " << user.host << std::endl;
                                     std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                                 }
@@ -1067,6 +1070,11 @@ private:
                             break;
                         }
                     }
+                    if (!found)
+                    {
+                        sendToServer("PRIVMSG " + replydest + " :User " + cmdargs[0] + " not found in my channels\r\n");
+                        logWrite("[i] User " + cmdargs[0] + " not found in any channel");
+                    }
                 }
                 else
                 {
@@ -1079,28 +1087,37 @@ private:
                 if (!cmdargs.empty())
                 {
                     std::vector<std::string> ipvect = getIpAddr(cmdargs[0]);
-                    if (ipvect.size() == 1)
+                    if (!ipvect.empty())
                     {
-                        std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
-                        sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                        logWrite("[i] Bot reply: " + botReply);
+                        if (ipvect.size() == 1)
+                        {
+                            std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
+                            sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                            logWrite("[i] Bot reply: " + botReply);
+                        }
+                        else if (ipvect.size() > 1)
+                        {
+                            std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
+                            std::vector<std::string> replyBody;
+                            replyBody.push_back(replyHeader);
+                            for (size_t i = 0; i < ipvect.size(); i++)
+                            {
+                                replyBody.push_back(ipvect[i]);
+                            }
+                            std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
+                            for (size_t i = 0; i < packedIpAddr.size(); i++)
+                            {
+                                sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                                logWrite("[i] Sent packed IPs to " + replydest);
+                            }
+                        }
                     }
-                    else if (ipvect.size() > 1)
+                    else
                     {
-                        std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
-                        std::vector<std::string> replyBody;
-                        replyBody.push_back(replyHeader);
-                        for (size_t i = 0; i < ipvect.size(); i++)
-                        {
-                            replyBody.push_back(ipvect[i]);
-                        }
-                        std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                        for (size_t i = 0; i < packedIpAddr.size(); i++)
-                        {
-                            sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                            logWrite("[i] Sent packed IPs to " + replydest);
-                        }
+                        sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + cmdargs[0] + "\r\n");
+                        logWrite("[i] No IP addresses found for " + cmdargs[0]);
                     }
+                    
                 }                  
             }
 

@@ -1,17 +1,19 @@
 #include "config.h"
 #include "ipinfo.h"
+
 #include <algorithm>
-#include <boost/algorithm/string.hpp>
-#include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
-#include <chrono> // Для std::chrono::milliseconds
+#include <chrono>
 #include <filesystem>
 #include <iostream>
-#include <regex> // Для std::regex и std::regex_match
+#include <regex>
 #include <string>
-#include <thread> // Для std::this_thread::sleep_for
-#include <unordered_set> // Для std::unordered_set
+#include <thread>
+#include <unordered_set>
 #include <vector>
+
+#include <boost/algorithm/string.hpp> // Для boost::algorithm::trim
+#include <boost/asio.hpp>             // Для boost::asio::ip::tcp
+#include <boost/bind/bind.hpp>        // Для boost::bind
 
 using boost::asio::ip::tcp;
 

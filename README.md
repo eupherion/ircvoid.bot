@@ -1,4 +1,4 @@
-# `ircbind.info` — C++ IRC Bot
+# `ircvoid.bot` — C++ IRC Bot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -8,7 +8,7 @@
 
 ## 1) Краткое описание
 
-`ircbind.info` — это асинхронный IRC-бот, написанный на **C++** с использованием библиотеки **Boost.Asio**. Он предназначен для работы в IRC-сетях и предоставляет следующие возможности:
+`ircvoid.bot` — это асинхронный IRC-бот, написанный на **C++** с использованием библиотеки **Boost.Asio**. Он предназначен для работы в IRC-сетях и предоставляет следующие возможности:
 
 - Подключение к IRC-серверу по TLS (пока нет).
 - Обработка команд от администраторов.
@@ -48,8 +48,8 @@ sudo apt install build-essential libboost-all-dev libcurl4-openssl-dev clang
 #### Вариант 1: Сборка через `make` (рекомендуется)
 
 ```bash
-git clone https://github.com/eupherion/ircbind.info.git
-cd ircbind.info
+git clone https://github.com/eupherion/ircvoid.bot.git
+cd ircvoid.bot
 make
 ```
 
@@ -61,12 +61,12 @@ make
 
 ```bash
 # Сборка с помощью clang++
-clang++ -std=c++17 -O2 main.cpp config.cpp ipinfo.cpp \
+clang++ -std=c++17 -O2 src/main.cpp src/config.cpp src/ipinfo.cpp src/ircbot.cpp \
         -o bot \
         -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
 
 # Или с g++
-g++ -std=c++17 -O2 main.cpp config.cpp ipinfo.cpp \
+g++ -std=c++17 -O2 src/main.cpp src/config.cpp src/ipinfo.cpp src/ircbot.cpp \
     -o bot \
     -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
 ```

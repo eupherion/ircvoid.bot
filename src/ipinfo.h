@@ -1,5 +1,6 @@
 // ipinfo.h
-#pragma once
+#ifndef IPINFO_H
+#define IPINFO_H
 
 #include <string>
 #include <vector>
@@ -105,4 +106,5 @@ std::vector<std::string> pack_strings(const std::vector<std::string> &input, siz
  * extractChan(" #bad ");           // вернёт ""
  * @endcode
  */
-std::string extractChan(const std::string& msgtext);
+std::string extractChan(const std::string &msgtext);
+#endif // IPINFO_H

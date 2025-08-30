@@ -1,8 +1,8 @@
 #include "config.h"
 #include <algorithm>
+#include <boost/algorithm/string.hpp>
 #include <filesystem>
 #include <iostream>
-#include <boost/algorithm/string.hpp>
 
 // Разделение строки на вектор по разделителю
 std::vector<std::string> IRCConfig::split(const std::string &str, char delimiter)
@@ -120,7 +120,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 }
 
 bool IRCConfig::validate() const // Проверка на корректность
-{/* Проверка runtime */
+{                                /* Проверка runtime */
     return true;
 }
 

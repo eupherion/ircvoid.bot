@@ -1,31 +1,40 @@
-#CC=g++ -std=c++17
+# CC=g++ -std=c++17
 CC=clang++ -std=c++17
-CXXFLAGS= -std=c++17 -Wall -pthread
-CFLAGS= -c -Wall -pthread
-LDFLAGS= -lpthread -lcurl
-SOURCE_DIR=src
-OBJECT_DIR=obj
-BULD_DIR=$(CURDIR)
-EXECUTABLE=$(BULD_DIR)/bot
+
+# Добавляем -Wextra и -g
+# CXXFLAGS = -std=c++17 -Wall -Wextra -g -pthread
+CXXFLAGS = -std=c++17 -Wall -Wextra -pthread
+# CFLAGS   = -c -Wall -Wextra -g -pthread
+CFLAGS   = -c -Wall -Wextra -pthread
+LDFLAGS  = -lpthread -lcurl
+
+SOURCE_DIR = src
+OBJECT_DIR = obj
+BUILD_DIR  = $(CURDIR)
+EXECUTABLE = $(BUILD_DIR)/bot
 
 # Список всех .cpp файлов
 SOURCES = $(wildcard $(SOURCE_DIR)/*.cpp)
 
-# Замена .cpp на .o и замена пути src/ на obj/
+# Замена .cpp на .o и пути src/ на obj/
 OBJECTS = $(SOURCES:$(SOURCE_DIR)/%.cpp=$(OBJECT_DIR)/%.o)
 
+# Цель по умолчанию
 all: $(EXECUTABLE)
 
+# Сборка исполняемого файла
 $(EXECUTABLE): $(OBJECTS)
 	@mkdir -p $(dir $@)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-# Правило для компиляции .cpp -> .o в директории obj/
+# Компиляция .cpp -> .o
 $(OBJECT_DIR)/%.o: $(SOURCE_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CC) $(CXXFLAGS) -c $< -o $@
 
+# Очистка
 clean:
-	rm -rf $(OBJECT_DIR)/*.o $(EXECUTABLE)
+	rm -rf $(OBJECT_DIR) $(EXECUTABLE)
 
+# Файлы, не связанные с файлами на диске
 .PHONY: all clean

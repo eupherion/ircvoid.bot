@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CONFIG_H
+#define CONFIG_H
 
 #include "cpptoml.h"
 #include <map>
@@ -34,8 +35,8 @@ public:
     struct Feature
     {
         std::string ip_info_token; // Токен для ipinfo.io
-        bool debug_mode; // Режим отладки
-        std::string log_file; // Имя файла лога в директории ./log
+        bool debug_mode;           // Режим отладки
+        std::string log_file;      // Имя файла лога в директории ./log
     };
 
     explicit IRCConfig(const std::string &filename);
@@ -55,3 +56,4 @@ private:
     std::string runtime_file_; // Имя файла runtime
     std::vector<std::string> split(const std::string &str, char delimiter = ',');
 };
+#endif // CONFIG_H

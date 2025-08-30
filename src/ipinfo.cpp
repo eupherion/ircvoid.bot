@@ -10,8 +10,8 @@
 #include <arpa/inet.h>
 #include <curl/curl.h>
 
-#include "ipinfo.h"
 #include "cppjson.h"
+#include "ipinfo.h"
 
 // Функция обратного вызова для записи данных из ответа сервера
 size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *userp)

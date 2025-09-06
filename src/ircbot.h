@@ -122,7 +122,9 @@ private:
     void handlePrivMsg(const IRCMessage &msg);
 
     // // --- Команды бота ---
-    // void handleCommandHi(const std::string& replydest);
+    void handleCommandIp(const IRCMessage &msg);
+    void handleCommandLoc(const IRCMessage &msg);
+    void handleCommandChan(const IRCMessage &msg);
     // void handleCommandJoin(const std::string& sender);
     // void handleCommandPart(const std::string& sender);
     // void handleCommandQuit(const std::string& sender, const std::vector<std::string>& args);

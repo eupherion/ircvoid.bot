@@ -718,6 +718,177 @@ void IRCBot::handleNickChange(const IRCMessage &msg)
     }
 }
 
+void IRCBot::handleCommandIp(const IRCMessage &msg)
+{
+    auto &client = config_.get_client();
+    auto &feature = config_.get_feature();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::vector<std::string> cmdline = splitStringBySpaces(msg.trailing);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    logWrite("[i] Bot Command " + cmdline[0] + " received by " + msg.prefix.nick + " :" + msg.trailing);
+
+    if (!cmdargs.empty())
+    {
+        std::vector<std::string> ipvect = getIpAddr(cmdargs[0]);
+        if (!ipvect.empty())
+        {
+            if (ipvect.size() == 1)
+            {
+                std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
+                sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
+                logWrite("[i] Bot reply: " + botReply);
+            }
+            else if (ipvect.size() > 1)
+            {
+                std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
+                std::vector<std::string> replyBody;
+                replyBody.push_back(replyHeader);
+                for (size_t i = 0; i < ipvect.size(); i++)
+                {
+                    replyBody.push_back(ipvect[i]);
+                }
+                std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
+                for (size_t i = 0; i < packedIpAddr.size(); i++)
+                {
+                    sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
+                    logWrite("[i] Sent packed IPs to " + replydest);
+                }
+            }
+        }
+        else
+        {
+            sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + cmdargs[0] + "\r\n");
+            logWrite("[i] No IP addresses found for " + cmdargs[0]);
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
+    }
+}
+
+void IRCBot::handleCommandLoc(const IRCMessage &msg)
+{
+    auto &client = config_.get_client();
+    auto &feature = config_.get_feature();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string loc_reply = "";
+    std::vector<std::string> cmdline = splitStringBySpaces(msg.trailing);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    logWrite("[i] Bot Command " + cmdline[0] + " received by " + msg.prefix.nick + " :" + msg.trailing);
+
+    bool found = false;
+    if (!cmdargs.empty())
+    {
+        for (const auto &chan : channels)
+        {
+            for (const auto &user : chan.users)
+            {
+                if (user.nick == cmdargs[0])
+                {
+                    found = true;
+                    if (user.host.find("in-addr") == std::string::npos)
+                    {
+                        std::vector<std::string> user_ip = getIpAddr(user.host);
+                        if (!user_ip.empty())
+                        {
+                            std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
+                            std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
+                            if (!ip_info.empty())
+                            {
+                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " is " + ip_info + "\r\n";
+                                std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
+                            }
+                            else
+                            {
+                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
+                                std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
+                            }
+                        }
+                        else
+                        {
+                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
+                            std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
+                        }
+                    }
+                    else
+                    {
+                        loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": host " + user.host + " is hidden\r\n";
+                        std::cout << "[i] Hidden host: " << user.host << std::endl;
+                        std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
+                    }
+                    break;
+                }
+            }
+            if (found)
+            {
+                if (!loc_reply.empty())
+                {
+                    sendToServer(loc_reply);
+                    logWrite("[i] Sent location reply to " + replydest + ": " + loc_reply);
+                }
+                break;
+            }
+        }
+        if (!found)
+        {
+            std::cout << "[DEBUG] No user found in channels, sending [WHO]" << std::endl;
+            sendToServer("PRIVMSG " + replydest + " :User " + cmdargs[0] + " not found in my channels\r\n");
+            sendToServer("PRIVMSG " + replydest + " :Trying to use WHO " + cmdargs[0] + " command\r\n");
+            logWrite("[i] User " + cmdargs[0] + " not found in joined channels");
+            sendToServer("WHO " + cmdargs[0] + "\r\n");
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
+    }
+}
+
+void IRCBot::handleCommandChan(const IRCMessage &msg)
+{
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    if (isAdmin(msg.prefix.nick))
+    {
+        std::cout << "[i] Admin " << msg.prefix.nick << " command received\n";
+        std::string currentchans = "";
+        for (auto &chan : channels)
+        {
+            currentchans += chan.name + " [" + std::to_string(chan.users.size()) + "] ";
+            std::cout << "chan:" << chan.name << '\n';
+            for (auto cu : chan.users)
+            {
+                std::cout << "user:" << cu.nick << '\n';
+            }
+        }
+        if (!currentchans.empty())
+        {
+            sendToServer("PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n");
+        }
+    }
+    else
+    {
+        if (!isAdmin(msg.prefix.nick))
+        {
+            sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin\r\n");
+        }
+    }
+}
+
 void IRCBot::handlePrivMsg(const IRCMessage &msg)
 {
     const auto &client = config_.get_client();
@@ -784,24 +955,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     if (command == "chan")
     {
-        if (isAdmin(msg.prefix.nick))
-        {
-            std::cout << "[i] Admin " << msg.prefix.nick << " command received\n";
-            std::string currentchans = "";
-            for (auto &chan : channels)
-            {
-                currentchans += chan.name + " [" + std::to_string(chan.users.size()) + "] ";
-                std::cout << "chan:" << chan.name << '\n';
-                for (auto cu : chan.users)
-                {
-                    std::cout << "user:" << cu.nick << '\n';
-                }
-            }
-            if (!currentchans.empty())
-            {
-                sendToServer("PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n");
-            }
-        }
+        handleCommandChan(msg);
     }
 
     else if (command == "quit")
@@ -981,113 +1135,12 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc <nick>
     {
-        logWrite("[i] Command " + command + " received by " + msg.prefix.nick + " :" + msgtext);
-        std::string loc_reply;
-        bool found = false;
-        if (!cmdargs.empty())
-        {
-            for (const auto &chan : channels)
-            {
-                for (const auto &user : chan.users)
-                {
-                    if (user.nick == cmdargs[0])
-                    {
-                        found = true;
-                        if (user.host.find("in-addr") == std::string::npos)
-                        {
-                            std::vector<std::string> user_ip = getIpAddr(user.host);
-                            if (!user_ip.empty())
-                            {
-                                std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
-                                std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
-                                if (!ip_info.empty())
-                                {
-                                    loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " is " + ip_info + "\r\n";
-                                    std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
-                                }
-                                else
-                                {
-                                    loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
-                                    std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
-                                }
-                            }
-                            else
-                            {
-                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
-                                std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
-                            }
-                        }
-                        else
-                        {
-                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": host " + user.host + " is hidden\r\n";
-                            std::cout << "[i] Hidden host: " << user.host << std::endl;
-                            std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
-                        }
-                        break;
-                    }
-                }
-                if (found)
-                {
-                    if (!loc_reply.empty())
-                    {
-                        sendToServer(loc_reply);
-                        logWrite("[i] Sent location reply to " + replydest + ": " + loc_reply);
-                    }
-                    break;
-                }
-            }
-            if (!found)
-            {
-                sendToServer("PRIVMSG " + replydest + " :User " + cmdargs[0] + " not found in my channels\r\n");
-                logWrite("[i] User " + cmdargs[0] + " not found in joined channels");
-            }
-        }
-        else
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
-        }
+        handleCommandLoc(msg);
     }
 
     else if (command == "ip")
     {
-        if (!cmdargs.empty())
-        {
-            std::vector<std::string> ipvect = getIpAddr(cmdargs[0]);
-            if (!ipvect.empty())
-            {
-                if (ipvect.size() == 1)
-                {
-                    std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
-                    sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                    logWrite("[i] Bot reply: " + botReply);
-                }
-                else if (ipvect.size() > 1)
-                {
-                    std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
-                    std::vector<std::string> replyBody;
-                    replyBody.push_back(replyHeader);
-                    for (size_t i = 0; i < ipvect.size(); i++)
-                    {
-                        replyBody.push_back(ipvect[i]);
-                    }
-                    std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                    for (size_t i = 0; i < packedIpAddr.size(); i++)
-                    {
-                        sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                        logWrite("[i] Sent packed IPs to " + replydest);
-                    }
-                }
-            }
-            else
-            {
-                sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + cmdargs[0] + "\r\n");
-                logWrite("[i] No IP addresses found for " + cmdargs[0]);
-            }
-        }
-        else
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
-        }
+        
     }
 
     else if (command == "help")

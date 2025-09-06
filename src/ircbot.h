@@ -113,7 +113,7 @@ private:
     void handleNamesReply(const IRCMessage &msg);
     void handleEndOfNames(const IRCMessage &msg);
     void handleWhoReply(const IRCMessage &msg);
-    
+
     void handleUserJoin(const IRCMessage &msg);
     void handleUserPart(const IRCMessage &msg);
     void handleUserQuit(const IRCMessage &msg);
@@ -125,10 +125,10 @@ private:
     void handleCommandIp(const IRCMessage &msg);
     void handleCommandLoc(const IRCMessage &msg);
     void handleCommandChan(const IRCMessage &msg);
-    // void handleCommandJoin(const std::string& sender);
-    // void handleCommandPart(const std::string& sender);
-    // void handleCommandQuit(const std::string& sender, const std::vector<std::string>& args);
-    // void handleCommandNames(const std::string& sender, const std::vector<std::string>& args);
+    void handleCommandJoin(const IRCMessage &msg);
+    void handleCommandPart(const IRCMessage &msg);
+    void handleCommandQuit(const IRCMessage &msg);
+    void handleCommandNames(const IRCMessage &msg);
 
     // --- Утилиты ---
     bool isAdmin(const std::string &nick);

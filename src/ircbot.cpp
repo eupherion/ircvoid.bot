@@ -723,7 +723,8 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
     auto &client = config_.get_client();
     auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::vector<std::string> cmdline = splitStringBySpaces(msg.trailing);
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
     std::vector<std::string> cmdargs;
     if (cmdline.size() > 1)
     {
@@ -780,7 +781,8 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
     auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     std::string loc_reply = "";
-    std::vector<std::string> cmdline = splitStringBySpaces(msg.trailing);
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
     std::vector<std::string> cmdargs;
     if (cmdline.size() > 1)
     {
@@ -889,6 +891,229 @@ void IRCBot::handleCommandChan(const IRCMessage &msg)
     }
 }
 
+void IRCBot::handleCommandQuit(const IRCMessage &msg)
+{
+    auto &client = config_.get_client();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    if (client.admins.empty())
+    {
+        std::cout << "[ERR] Admins list is empty\n";
+        return; // Пропускаем, если admins пуст
+    }
+    else
+    {
+        std::string reason = "";
+        if (!cmdargs.empty())
+        {
+            for (const auto &arg : cmdargs)
+            {
+                if (!arg.empty())
+                {
+                    reason += arg + " ";
+                }
+            }
+        }
+        if (isAdmin(msg.prefix.nick))
+        {
+            std::cout << "[i] Admin " << msg.prefix.nick << " quit command received\n";
+            std::string reply = "";
+            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION Going down...\x01\r\n");
+            // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+            if (!reason.empty())
+            {
+                reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
+            }
+            else
+            {
+                reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+            }
+
+            sendToServer(reply);
+            logWrite("[i] Shutdown message sent to " + replydest);
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            logWrite("[!] Shutting down...");
+            shutdown(reason);
+        }
+    }
+}
+
+void IRCBot::handleCommandJoin(const IRCMessage &msg)
+{
+    //auto &client = config_.get_client();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    if (isAdmin(msg.prefix.nick))
+    {
+        std::string chanjoin = "";
+        if (!cmdargs.empty())
+        {
+            chanjoin = extractChan(cmdargs[0]);
+            if (!chanjoin.empty())
+            {
+                sendToServer("JOIN " + chanjoin + "\r\n");
+                sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + chanjoin + "\x01\r\n");
+                sendToServer("WHO " + chanjoin + "\r\n");
+                logWrite("[i] Joining channel " + chanjoin + " by " + msg.prefix.nick);
+            }
+        }
+        else
+        {
+            sendToServer("NOTICE " + msg.prefix.nick + " :No channel specified.\r\n");
+            sendToServer("PRIVMSG " + replydest + " : Usage: .join #channel\r\n");
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
+    }
+}
+
+void IRCBot::handleCommandPart(const IRCMessage &msg)
+{
+    //auto &client = config_.get_client();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    if (isAdmin(msg.prefix.nick))
+    {
+        std::string chanpart = "";
+        if (!cmdargs.empty())
+        {
+            chanpart = extractChan(cmdargs[0]);
+            if (chanpart.empty())
+            {
+                sendToServer("NOTICE " + msg.prefix.nick + " :Invalid channel name.\r\n");
+                return;
+            }
+        }
+        else
+        {
+            // Если аргумента нет, покидаем текущий канал
+            if (msg.params[0].find('#') != std::string::npos)
+            {
+                chanpart = msg.params[0];
+            }
+            else
+            {
+                sendToServer("NOTICE " + msg.prefix.nick + " :No channel specified.\r\n");
+                return;
+            }
+        }
+
+        // 1. Отправляем команды
+        sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + chanpart + "\x01\r\n");
+        sendToServer("PART " + chanpart + "\r\n");
+        logWrite("[i] Parting channel " + chanpart + " by " + msg.prefix.nick);
+
+        // 2. Удаляем канал из вектора channels
+        auto &chans = channels;
+        auto it = std::find_if(chans.begin(), chans.end(),
+                               [&chanpart](const IRCChan &c)
+                               {
+                                   return c.name == chanpart;
+                               });
+
+        if (it != chans.end())
+        {
+            chans.erase(it);
+            logWrite("[-] Removed channel " + chanpart + " from internal list.");
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
+    }
+}
+
+void IRCBot::handleCommandNames(const IRCMessage &msg)
+{
+    //auto &client = config_.get_client();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    if (isAdmin(msg.prefix.nick))
+    {
+        if (!cmdargs.empty())
+        {
+            for (const auto &arg : cmdargs)
+            {
+                if (!arg.empty())
+                {
+                    std::string chanupdate = extractChan(arg);
+                    if (!chanupdate.empty())
+                    {
+                        for (const auto &chan : channels)
+                        {
+                            if (chan.name == chanupdate)
+                            {
+                                updateChanNames(msg, chanupdate);
+                                sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chanupdate + " NAMES updated\r\n");
+                                // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                                return;
+                            }
+                        }
+                        sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chanupdate + " not found in internal list\r\n");
+                        logWrite("[-] Cannot update names: channel " + chanupdate + " not found in internal list");
+                    }
+                    else
+                    {
+                        sendToServer("NOTICE " + msg.prefix.nick + " :Invalid channel name:" + arg + "\r\n");
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (const auto &chan : channels)
+            {
+                updateChanNames(msg, chan.name);
+                sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chan.name + " NAMES updated\r\n");
+                // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
+    }
+}
+
 void IRCBot::handlePrivMsg(const IRCMessage &msg)
 {
     const auto &client = config_.get_client();
@@ -955,182 +1180,27 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     if (command == "chan")
     {
-        handleCommandChan(msg);
+        handleCommandChan(msg); // Показывает список каналов
     }
 
     else if (command == "quit")
     {
-        if (client.admins.empty())
-        {
-            std::cout << "[ERR] Admins list is empty\n";
-            return; // Пропускаем, если admins пуст
-        }
-        else
-        {
-            std::string reason = "";
-            if (!cmdargs.empty())
-            {
-                for (const auto &arg : cmdargs)
-                {
-                    if (!arg.empty())
-                    {
-                        reason += arg + " ";
-                    }
-                }
-            }
-            if (isAdmin(msg.prefix.nick))
-            {
-                std::cout << "[i] Admin " << msg.prefix.nick << " quit command received\n";
-                std::string reply = "";
-                sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION Going down...\x01\r\n");
-                // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-                if (!reason.empty())
-                {
-                    reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
-                }
-                else
-                {
-                    reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
-                }
-
-                sendToServer(reply);
-                logWrite("[i] Shutdown message sent to " + replydest);
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                logWrite("[!] Shutting down...");
-                shutdown(reason);
-            }
-        }
+        handleCommandQuit(msg); // Выход из бота
     }
 
     else if (command == "join")
     {
-        if (isAdmin(msg.prefix.nick))
-        {
-            std::string chanjoin = "";
-            if (!cmdargs.empty())
-            {
-                chanjoin = extractChan(cmdargs[0]);
-                if (!chanjoin.empty())
-                {
-                    sendToServer("JOIN " + chanjoin + "\r\n");
-                    sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION joins " + chanjoin + "\x01\r\n");
-                    sendToServer("WHO " + chanjoin + "\r\n");
-                    logWrite("[i] Joining channel " + chanjoin + " by " + msg.prefix.nick);
-                }
-            }
-            else
-            {
-                sendToServer("NOTICE " + msg.prefix.nick + " :No channel specified.\r\n");
-                sendToServer("PRIVMSG " + replydest + " : Usage: .join #channel\r\n");
-            }
-        }
-        else
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
-        }
+        handleCommandJoin(msg); // Подключается к каналу
     }
 
     else if (command == "part")
     {
-        if (isAdmin(msg.prefix.nick))
-        {
-            std::string chanpart = "";
-            if (!cmdargs.empty())
-            {
-                chanpart = extractChan(cmdargs[0]);
-                if (chanpart.empty())
-                {
-                    sendToServer("NOTICE " + msg.prefix.nick + " :Invalid channel name.\r\n");
-                    return;
-                }
-            }
-            else
-            {
-                // Если аргумента нет, покидаем текущий канал
-                if (msg.params[0].find('#') != std::string::npos)
-                {
-                    chanpart = msg.params[0];
-                }
-                else
-                {
-                    sendToServer("NOTICE " + msg.prefix.nick + " :No channel specified.\r\n");
-                    return;
-                }
-            }
-
-            // 1. Отправляем команды
-            sendToServer("PRIVMSG " + replydest + " :\x01" + "ACTION parts " + chanpart + "\x01\r\n");
-            sendToServer("PART " + chanpart + "\r\n");
-            logWrite("[i] Parting channel " + chanpart + " by " + msg.prefix.nick);
-
-            // 2. Удаляем канал из вектора channels
-            auto &chans = channels;
-            auto it = std::find_if(chans.begin(), chans.end(),
-                                   [&chanpart](const IRCChan &c)
-                                   {
-                                       return c.name == chanpart;
-                                   });
-
-            if (it != chans.end())
-            {
-                chans.erase(it);
-                logWrite("[-] Removed channel " + chanpart + " from internal list.");
-            }
-        }
-        else
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
-        }
+        handleCommandPart(msg); // Покидает канал
     }
 
     else if (command == "names")
     {
-        if (isAdmin(msg.prefix.nick))
-        {
-            if (!cmdargs.empty())
-            {
-                for (const auto &arg : cmdargs)
-                {
-                    if (!arg.empty())
-                    {
-                        std::string chanupdate = extractChan(arg);
-                        if (!chanupdate.empty())
-                        {
-                            for (const auto &chan : channels)
-                            {
-                                if (chan.name == chanupdate)
-                                {
-                                    updateChanNames(msg, chanupdate);
-                                    sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chanupdate + " NAMES updated\r\n");
-                                    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                                    return;
-                                }
-                            }
-                            sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chanupdate + " not found in internal list\r\n");
-                            logWrite("[-] Cannot update names: channel " + chanupdate + " not found in internal list");
-                        }
-                        else
-                        {
-                            sendToServer("NOTICE " + msg.prefix.nick + " :Invalid channel name:" + arg + "\r\n");
-                        }
-                    }
-                }
-            }
-            else
-            {
-                for (const auto &chan : channels)
-                {
-                    updateChanNames(msg, chan.name);
-                    sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chan.name + " NAMES updated\r\n");
-                    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                }
-            }
-        }
-        else
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin!\r\n");
-        }
+        handleCommandNames(msg); // Показывает список участников канала
     }
 
     else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc <nick>
@@ -1140,7 +1210,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     else if (command == "ip")
     {
-        
+        handleCommandIp(msg);
     }
 
     else if (command == "help")

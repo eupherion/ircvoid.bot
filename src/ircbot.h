@@ -124,6 +124,7 @@ private:
     // // --- Команды бота ---
     void handleCommandIp(const IRCMessage &msg);
     void handleCommandLoc(const IRCMessage &msg);
+    void handleCommandHelp(const IRCMessage &msg);
     void handleCommandChan(const IRCMessage &msg);
     void handleCommandJoin(const IRCMessage &msg);
     void handleCommandPart(const IRCMessage &msg);

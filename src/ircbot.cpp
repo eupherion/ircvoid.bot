@@ -429,7 +429,7 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <client> <channel> <username> <hostname> <servername> <nick> <flags> :<hopcount> <realname>
+void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <clientnick> <channel> <username> <hostname> <servername> <nick> <flags> :<hopcount> <realname>
 {
     auto feature = config_.get_feature();
     std::string userchan = msg.params[1];
@@ -442,39 +442,60 @@ void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <client> <chan
     IRCUser user(usernick, username, userhost, realname);
 
     // Находим канал и добавляем пользователя
-    for (auto &chan : channels)
+    if (userchan != "*")
     {
-        if (chan.name == userchan)
+        for (auto &chan : channels)
         {
-            // Проверяем дубликат
-            auto it = std::find_if(chan.users.begin(), chan.users.end(),
-                                   [&user](const IRCUser &u)
-                                   { return u.nick == user.nick; });
+            if (userchan == chan.name)
+            {
+                // Проверяем дубликат
+                auto it = std::find_if(chan.users.begin(), chan.users.end(),
+                                       [&user](const IRCUser &u)
+                                       { return u.nick == user.nick; });
 
-            if (it == chan.users.end())
-            {
-                // Пользователя нет — добавляем
-                chan.users.push_back(user);
-                if (feature.debug_mode)
+                if (it == chan.users.end())
                 {
-                    std::cout << "[+] User " << user.nick << '!' << user.user << '@' << user.host
-                              << " (" << user.realname << ") saved to internal list of channel " << userchan << std::endl;
+                    // Пользователя нет — добавляем
+                    chan.users.push_back(user);
+                    if (feature.debug_mode)
+                    {
+                        std::cout << "[+] User " << user.nick << '!' << user.user << '@' << user.host
+                                  << " (" << user.realname << ") saved to internal list of channel " << userchan << std::endl;
+                    }
                 }
-            }
-            else
-            {
-                // Пользователь уже есть — обновляем данные
-                it->user = user.user;
-                it->host = user.host;
-                it->realname = user.realname;
-                if (feature.debug_mode)
+                else
                 {
-                    std::cout << "[i] Updated user " << user.nick << '!' << user.user << '@' << user.host
-                              << " (" << user.realname << ") in internal list of channel " << userchan << std::endl;
+                    // Пользователь уже есть — обновляем данные
+                    it->user = user.user;
+                    it->host = user.host;
+                    it->realname = user.realname;
+                    if (feature.debug_mode)
+                    {
+                        std::cout << "[i] Updated user " << user.nick << '!' << user.user << '@' << user.host
+                                  << " (" << user.realname << ") in internal list of channel " << userchan << std::endl;
+                    }
                 }
             }
         }
     }
+    else
+    {
+        std::vector<std::string> user_ipaddr = getIpAddr(userhost);
+        if (!user_ipaddr.empty())
+        {
+            std::string user_ipinfo = getIpInfo(user_ipaddr[0], feature.ip_info_token);
+            if (!user_ipinfo.empty())
+            {
+                std::cout << "[i] IP info for " << userhost << ":\n";
+                std::cout << user_ipinfo << '\n';
+            }
+        }
+        else
+        {
+            std::cout << "[i] No IP addresses found for " << userhost << std::endl;
+        }
+    }
+    
 }
 
 bool IRCBot::detectRusNet(const IRCMessage &msg)
@@ -671,6 +692,40 @@ void IRCBot::handleUserQuit(const IRCMessage &msg)
         {
             users.erase(it);
             logWrite("[-] User " + nick + " quit from all channels");
+        }
+    }
+}
+
+void IRCBot::handleCommandHelp(const IRCMessage &msg)
+{
+    auto client = config_.get_client();
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
+    std::vector<std::string> cmdargs;
+    if (cmdline.size() > 1)
+    {
+        for (size_t i = 1; i < cmdline.size(); i++)
+        {
+            cmdargs.push_back(cmdline[i]);
+        }
+    }
+    if (cmdargs.empty())
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :Available commands: " + client.command_symbol + "help, " + client.command_symbol + "loc, " + client.command_symbol + "ip\r\n");
+    }
+    else if (cmdargs[0] == "loc")
+    {
+        if (cmdargs.size() == 1)
+        {
+            sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
+        }
+    }
+    else if (cmdargs[0] == "ip")
+    {
+        if (cmdargs.size() == 1)
+        {
+            sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
         }
     }
 }
@@ -1173,6 +1228,10 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
                 std::cout << "[DEBUG]: command: [" << command << "] (no args)" << std::endl;
             }
         }
+        if (!replydest.empty())
+        {
+            std::cout << "[DEBUG]: Reply Destination: " << replydest << std::endl;
+        }
     }
     std::cout << "[MESSAGE] From " << msg.prefix.nick
               << " to " << msg.params[0]
@@ -1215,24 +1274,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     else if (command == "help")
     {
-        if (cmdargs.empty())
-        {
-            sendToServer("NOTICE " + msg.prefix.nick + " :Available commands: " + client.command_symbol + "help, " + client.command_symbol + "loc, " + client.command_symbol + "ip\r\n");
-        }
-        else if (cmdargs[0] == "loc")
-        {
-            if (cmdargs.size() == 1)
-            {
-                sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
-            }
-        }
-        else if (cmdargs[0] == "ip")
-        {
-            if (cmdargs.size() == 1)
-            {
-                sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
-            }
-        }
+        handleCommandHelp(msg);
     }
 }
 

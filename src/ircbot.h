@@ -95,6 +95,8 @@ private:
     IRCMessage ircmsg;
     std::vector<IRCChan> channels;
     bool rusnetAuth = false;
+    bool requestInfo = false;
+    std::string reply_to;
 
     // --- Вспомогательные методы ---
     void handleConnect(const boost::system::error_code &error);
@@ -112,7 +114,7 @@ private:
     void updateChanNames(const IRCMessage &msg, const std::string &chame);
     void handleNamesReply(const IRCMessage &msg);
     void handleEndOfNames(const IRCMessage &msg);
-    void handleWhoReply(const IRCMessage &msg);
+    void handleWhoReply(const IRCMessage &msg, bool request, const std::string &rpl);
 
     void handleUserJoin(const IRCMessage &msg);
     void handleUserPart(const IRCMessage &msg);

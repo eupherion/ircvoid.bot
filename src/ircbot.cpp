@@ -429,7 +429,7 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <clientnick> <channel> <username> <hostname> <servername> <nick> <flags> :<hopcount> <realname>
+void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::string &rpl) // :server 352 <clientnick> <channel> <username> <hostname> <servername> <nick> <flags> :<hopcount> <realname>
 {
     auto feature = config_.get_feature();
     std::string userchan = msg.params[1];
@@ -440,6 +440,20 @@ void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <clientnick> <
 
     // Создаём пользователя
     IRCUser user(usernick, username, userhost, realname);
+
+    if (msg.command == "315" && request)
+    {
+        sendToServer("PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command\r\n");
+        logWrite("[+] Sent PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command");
+        requestInfo = false;
+        reply_to.clear();
+        return;
+    }
+
+    if (msg.command == "315" && !request)
+    {
+        return;
+    }
 
     // Находим канал и добавляем пользователя
     if (userchan != "*")
@@ -488,11 +502,25 @@ void IRCBot::handleWhoReply(const IRCMessage &msg) // :server 352 <clientnick> <
             {
                 std::cout << "[i] IP info for " << userhost << ":\n";
                 std::cout << user_ipinfo << '\n';
+                if (request)
+                {
+                    sendToServer("PRIVMSG " + rpl + " :" + user_ipinfo + "\r\n");
+                    logWrite("[+] Sent: " + user_ipinfo + " to " + rpl);
+                    requestInfo = false;
+                    reply_to.clear();
+                }
             }
         }
         else
         {
             std::cout << "[i] No IP addresses found for " << userhost << std::endl;
+            if (request)
+            {
+                sendToServer("PRIVMSG " + rpl + " :No IP addresses found for " + userhost + "\r\n");
+                logWrite("[!] Sent: No IP addresses found for " + userhost + " to " + rpl);
+                requestInfo = false;
+                reply_to.clear();
+            }
         }
     }
     
@@ -903,16 +931,16 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
         }
         if (!found)
         {
-            std::cout << "[DEBUG] No user found in channels, sending [WHO]" << std::endl;
-            sendToServer("PRIVMSG " + replydest + " :User " + cmdargs[0] + " not found in my channels\r\n");
-            sendToServer("PRIVMSG " + replydest + " :Trying to use WHO " + cmdargs[0] + " command\r\n");
-            logWrite("[i] User " + cmdargs[0] + " not found in joined channels");
+            logWrite("[i] User " + cmdargs[0] + " not found in joined channels, sending WHO command");
+            requestInfo = true; // Запросим информацию о пользователе
+            reply_to = replydest;
             sendToServer("WHO " + cmdargs[0] + "\r\n");
         }
     }
     else
     {
         sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
+        logWrite("[!] Sent: NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
     }
 }
 
@@ -1313,11 +1341,11 @@ void IRCBot::parseServerMessage(const std::string &line)
         joinConfigChans(client.channels);
     }
 
-    else if (ircmsg.command == "352") // [RPL_WHOREPLY] :server 352 YourNick #channel bob bob@host.org ircd.example.org Bobby H :0 Bob Smith
+    else if (ircmsg.command == "352" || ircmsg.command == "315") // [RPL_WHOREPLY] :server 352 YourNick #channel bob bob@host.org ircd.example.org Bobby H :0 Bob Smith
     {
         if (!ircmsg.params.empty())
         {
-            handleWhoReply(ircmsg);
+            handleWhoReply(ircmsg, requestInfo, reply_to);
         }
     }
 

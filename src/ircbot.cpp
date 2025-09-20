@@ -70,6 +70,7 @@ void IRCBot::startRead()
 
 void IRCBot::handleRead(const boost::system::error_code &error, size_t bytes_transferred)
 {
+    const auto &feature = config_.get_feature();
     if (!error && bytes_transferred > 0)
     {
         std::string response(data_, bytes_transferred);
@@ -79,7 +80,10 @@ void IRCBot::handleRead(const boost::system::error_code &error, size_t bytes_tra
         {
             std::string line = incomingBuffer_.substr(0, pos);
             incomingBuffer_.erase(0, pos + 2); // Удаляем обработанную строку
-            std::cout << "[RAW] " << line << std::endl;
+            if (feature.verbose_mode)
+            {
+                std::cout << "[⇩] " << line << std::endl;
+            }
             if (!line.empty())
             {
                 parseServerMessage(line);
@@ -151,7 +155,7 @@ void IRCBot::logWrite(const std::string &message)
             std::streamsize size = checkFile.tellg();
             checkFile.close();
 
-            const std::streamsize max_size = 50 * 1024; // 50 КБ
+            const std::streamsize max_size = 200 * 1024; // 200 КБ
             if (size >= max_size)
             {
                 // Формируем временную метку для имени
@@ -198,7 +202,10 @@ void IRCBot::logWrite(const std::string &message)
     {
         std::cerr << "[ERR] Exception in logWrite(): " << ex.what() << std::endl;
     }
-    std::cout << message << std::endl;
+    if (feature.verbose_mode)
+    {
+            std::cout << message << std::endl; // TODO: Перенести в отдельный поток
+    }
 }
 
 void IRCBot::shutdown(const std::string &reason)
@@ -208,12 +215,12 @@ void IRCBot::shutdown(const std::string &reason)
     if (!reason.empty())
     {
         sendToServer("QUIT :" + reason + "\r\n");
-        logWrite("[i] QUIT Command sent to server, reason: " + reason);
+        logWrite("[↑] QUIT Command sent to server, reason: " + reason);
     }
     else
     {
         sendToServer("QUIT :Shutting down\r\n");
-        logWrite("[i] QUIT Command sent to server");
+        logWrite("[↑] QUIT Command sent to server");
     }
     
     if (socket_.is_open())
@@ -341,7 +348,7 @@ void IRCBot::updateChanNames(const IRCMessage &msg, const std::string &chname)
         it->isJoined = false; // Будет снова установлен при 366
 
         sendToServer("NAMES " + chname + "\r\n"); // Запрашиваем имена канала
-        logWrite("[i] Sent NAMES request for " + chname);
+        logWrite("[↑] Sent NAMES request for " + chname);
     }
 }
 
@@ -384,9 +391,9 @@ void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
                         userSet.insert(clean_nick);             // Добавляем в set для последующих проверок
                     }
                 }
-
-                std::cout << "[+] Updated user list for " << channelName
-                          << " (" << existingUsers.size() << " users)" << std::endl;
+                logWrite("[+] Updated user list for " + channelName +
+                         " : " + std::to_string(existingUsers.size()) +
+                         " users (353 RPL_NAMREPLY)");
                 break;
             }
         }
@@ -409,7 +416,7 @@ void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
     }
 }
 
-void IRCBot::handleEndOfNames(const IRCMessage &msg)
+void IRCBot::handleEndOfNames(const IRCMessage &msg) // 366 RPL_ENDOFNAMES
 {
     std::string channelName = msg.params[1];
 
@@ -421,9 +428,9 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg)
             channel.isJoined = true;
             std::cout << "[+] Channel " << channelName
                       << " names saved. There are " << channel.users.size() << " users." << std::endl;
-            logWrite("[+] Channel " + channelName + " joined, channel names saved. ");
+            logWrite("[+] Channel " + channelName + " names saved (366 RPL_ENDOFNAMES)");
             sendToServer("WHO " + channelName + "\r\n");
-            logWrite("[+] Sent WHO " + channelName + " to server. ");
+            logWrite("[↑] Sent WHO " + channelName + " to server. ");
             break;
         }
     }
@@ -444,7 +451,7 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
     if (msg.command == "315" && request)
     {
         sendToServer("PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command\r\n");
-        logWrite("[+] Sent PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command");
+        logWrite("[↑] Sent PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command");
         requestInfo = false;
         reply_to.clear();
         return;
@@ -500,12 +507,11 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
             std::string user_ipinfo = getIpInfo(user_ipaddr[0], feature.ip_info_token);
             if (!user_ipinfo.empty())
             {
-                std::cout << "[i] IP info for " << userhost << ":\n";
-                std::cout << user_ipinfo << '\n';
                 if (request)
                 {
                     sendToServer("PRIVMSG " + rpl + " :" + user_ipinfo + "\r\n");
-                    logWrite("[+] Sent: " + user_ipinfo + " to " + rpl);
+                    logWrite("[i] IPInfo for " + userhost + ": " + user_ipinfo);
+                    logWrite("[↑] Sent: IPInfo for " + userhost + " to " + rpl);
                     requestInfo = false;
                     reply_to.clear();
                 }
@@ -513,7 +519,7 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
         }
         else
         {
-            std::cout << "[i] No IP addresses found for " << userhost << std::endl;
+            logWrite("[!] No IP addresses found for " + userhost);
             if (request)
             {
                 sendToServer("PRIVMSG " + rpl + " :No IP addresses found for " + userhost + "\r\n");
@@ -529,8 +535,8 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
 bool IRCBot::detectRusNet(const IRCMessage &msg)
 {
     auto &client = config_.get_client();
-    logWrite("[+] " + msg.trailing);
-    logWrite("[+] RusNet Server detected");
+    logWrite("[i] " + msg.trailing);
+    logWrite("[i] RusNet Server detected");
     std::string setmode = "MODE " + client.nickname + " +ix\r\n";
     sendToServer(setmode);
     logWrite("[+] " + setmode.substr(0, setmode.length() - 2));
@@ -552,7 +558,7 @@ void IRCBot::authNickServ(bool rusnet)
         ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
     }
     sendToServer(ns_auth);
-    std::string logentry = "[+] Sent NICKSERV AUTH";
+    std::string logentry = "[↑] Sent NICKSERV AUTH";
     if (rusnet)
     {
         logentry += " (RusNet)";
@@ -573,7 +579,7 @@ void IRCBot::handleServerPing(const IRCMessage &msg)
 {
     std::string pong = "PONG :" + msg.trailing + "\r\n";
     sendToServer(pong);
-    std::cout << "[>>>] " + pong.substr(0, pong.length() - 2) + '\n';
+    std::cout << "[↑] " + pong.substr(0, pong.length() - 2) + '\n';
 }
 
 void IRCBot::handleCtcpReply(const IRCMessage &msg)
@@ -586,7 +592,7 @@ void IRCBot::handleCtcpReply(const IRCMessage &msg)
         if (!msg.prefix.nick.empty())
         {
             sendToServer("NOTICE " + msg.prefix.nick + " :\x01VERSION " + client.dcc_version + "\x01\r\n");
-            logWrite("[+] Sent CTCP [VERSION " + client.dcc_version + "] to " + msg.prefix.nick);
+            logWrite("[↑] Sent CTCP [VERSION " + client.dcc_version + "] to " + msg.prefix.nick);
         }
     }
 
@@ -595,7 +601,7 @@ void IRCBot::handleCtcpReply(const IRCMessage &msg)
         if (!msg.prefix.nick.empty())
         {
             sendToServer("NOTICE " + msg.prefix.nick + " :\x01PING " + msg.trailing.substr(6) + "\x01\r\n");
-            logWrite("[+] Sent CTCP PING to " + msg.prefix.nick);
+            logWrite("[↑] Sent CTCP PING to " + msg.prefix.nick);
         }
     }
 
@@ -612,7 +618,7 @@ void IRCBot::handleCtcpReply(const IRCMessage &msg)
             std::string time_str = oss.str();
 
             sendToServer("NOTICE " + msg.prefix.nick + " :\x01TIME " + time_str + "\x01\r\n");
-            logWrite("[+] Sent CTCP TIME: " + time_str + " to " + msg.prefix.nick);
+            logWrite("[↑] Sent CTCP TIME: " + time_str + " to " + msg.prefix.nick);
         }
     }
 
@@ -621,7 +627,7 @@ void IRCBot::handleCtcpReply(const IRCMessage &msg)
         if (!msg.prefix.nick.empty())
         {
             sendToServer("NOTICE " + msg.prefix.nick + " :\x01" + "CLIENTINFO VERSION PING TIME CLIENTINFO\x01\r\n");
-            logWrite("[+] Sent CTCP CLIENTINFO to " + msg.prefix.nick);
+            logWrite("[↑] Sent CTCP CLIENTINFO to " + msg.prefix.nick);
         }
     }
 }
@@ -827,7 +833,7 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
             {
                 std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
                 sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                logWrite("[i] Bot reply: " + botReply);
+                logWrite("[↑] Sent reply: " + botReply + " to " + replydest);
             }
             else if (ipvect.size() > 1)
             {
@@ -842,14 +848,14 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
                 for (size_t i = 0; i < packedIpAddr.size(); i++)
                 {
                     sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                    logWrite("[i] Sent packed IPs to " + replydest);
+                    logWrite("[↑] Sent packed IPs to " + replydest);
                 }
             }
         }
         else
         {
             sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + cmdargs[0] + "\r\n");
-            logWrite("[i] No IP addresses found for " + cmdargs[0]);
+            logWrite("[!] No IP addresses found for " + cmdargs[0]);
         }
     }
     else
@@ -891,30 +897,25 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
                         std::vector<std::string> user_ip = getIpAddr(user.host);
                         if (!user_ip.empty())
                         {
-                            std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
+                            //std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
                             std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
                             if (!ip_info.empty())
                             {
                                 loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " is " + ip_info + "\r\n";
-                                std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                             }
                             else
                             {
                                 loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
-                                std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                             }
                         }
                         else
                         {
                             loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
-                            std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                         }
                     }
                     else
                     {
                         loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": host " + user.host + " is hidden\r\n";
-                        std::cout << "[i] Hidden host: " << user.host << std::endl;
-                        std::cout << "[DEBUG] loc_reply: " << loc_reply << std::endl;
                     }
                     break;
                 }
@@ -924,7 +925,7 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
                 if (!loc_reply.empty())
                 {
                     sendToServer(loc_reply);
-                    logWrite("[i] Sent location reply to " + replydest + ": " + loc_reply);
+                    logWrite("[↑] Sent .loc reply to " + replydest + ": " + loc_reply);
                 }
                 break;
             }
@@ -939,37 +940,56 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
     }
     else
     {
-        sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
-        logWrite("[!] Sent: NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
+        std::string reply = "NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n";
+        sendToServer(reply);
+        logWrite("[!] Sent: " + reply);
     }
 }
 
 void IRCBot::handleCommandChan(const IRCMessage &msg)
 {
+    const auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     if (isAdmin(msg.prefix.nick))
     {
-        std::cout << "[i] Admin " << msg.prefix.nick << " command received\n";
+        logWrite("[i] Admin " + msg.prefix.nick + " command received");
         std::string currentchans = "";
         for (auto &chan : channels)
         {
             currentchans += chan.name + " [" + std::to_string(chan.users.size()) + "] ";
-            std::cout << "chan:" << chan.name << '\n';
-            for (auto cu : chan.users)
+            if (feature.debug_mode)
             {
-                std::cout << "user:" << cu.nick << '\n';
+                std::cout << "[DEBUG] Chan:" << chan.name << '\n';
+                for (auto cu : chan.users)
+                {
+                    std::cout << "[DEBUG] User:" << cu.nick << '\n';
+                }
             }
         }
         if (!currentchans.empty())
         {
-            sendToServer("PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n");
+            std::string reply = "PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n";
+            sendToServer(reply);
+            logWrite("[↑] Sent .chan reply to " + replydest + ": " + reply);
+        }
+        else
+        {
+            if (feature.debug_mode)
+            {
+                std::cout << "[DEBUG] No channels found\n";
+            }
+            std::string reply = "PRIVMSG " + replydest + " :No channels found\r\n";
+            sendToServer(reply);
+            logWrite("[↑] Sent .chan reply to " + replydest + ": " + reply);
         }
     }
     else
     {
         if (!isAdmin(msg.prefix.nick))
         {
-            sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin\r\n");
+            std::string reply = "NOTICE " + msg.prefix.nick + " :You are not an admin\r\n";
+            sendToServer(reply);
+            logWrite("[↑] Sent .chan reply to " + msg.prefix.nick + ": " + reply);
         }
     }
 }
@@ -1015,15 +1035,15 @@ void IRCBot::handleCommandQuit(const IRCMessage &msg)
 
             if (!reason.empty())
             {
-                reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "! " + reason + "\r\n";
+                reply = "PRIVMSG " + replydest + " :Quit: " + reason + "\r\n";
             }
             else
             {
-                reply = "PRIVMSG " + replydest + " :Goodbye, " + ircmsg.prefix.nick + "!\r\n";
+                reply = "PRIVMSG " + replydest + " :Cya, " + ircmsg.prefix.nick + "!\r\n";
             }
 
             sendToServer(reply);
-            logWrite("[i] Shutdown message sent to " + replydest);
+            logWrite("[↑] Shutdown message sent to " + replydest);
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             logWrite("[!] Shutting down...");
             shutdown(reason);
@@ -1167,6 +1187,7 @@ void IRCBot::handleCommandNames(const IRCMessage &msg)
                             {
                                 updateChanNames(msg, chanupdate);
                                 sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chanupdate + " NAMES updated\r\n");
+                                logWrite("[i] Channel " + chanupdate + " NAMES updated");
                                 // std::this_thread::sleep_for(std::chrono::milliseconds(500));
                                 return;
                             }
@@ -1202,7 +1223,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
     const auto &client = config_.get_client();
     const auto &feature = config_.get_feature();
     std::string replydest;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
+    std::string msgtext = boost::algorithm::trim_copy(msg.trailing); // без пробелов в начале и конце
     std::string command = ""; // команда боту
     std::vector<std::string> cmdargs = {}; // аргументы команды
     replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
@@ -1261,9 +1282,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
             std::cout << "[DEBUG]: Reply Destination: " << replydest << std::endl;
         }
     }
-    std::cout << "[MESSAGE] From " << msg.prefix.nick
-              << " to " << msg.params[0]
-              << ": " << msgtext << std::endl;
+    logWrite("[#] <" + msg.prefix.nick + "> ⇨ <" + msg.params[0] + "> :" + msgtext);
 
     if (command == "chan")
     {

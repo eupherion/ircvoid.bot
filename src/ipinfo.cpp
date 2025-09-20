@@ -99,25 +99,25 @@ std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ip
                     ipReplStr += jsonData["country"].get<std::string>() + ' ';
                 }
 
-                if (!jsonData["loc"].is_null())
-                {
-                    ipReplStr += jsonData["loc"].get<std::string>() + ' ';
-                }
+                // if (!jsonData["loc"].is_null())
+                // {
+                //     ipReplStr += jsonData["loc"].get<std::string>() + ' ';
+                // }
 
                 if (!jsonData["org"].is_null())
                 {
                     ipReplStr += jsonData["org"].get<std::string>() + ' ';
                 }
 
-                if (!jsonData["postal"].is_null())
-                {
-                    ipReplStr += jsonData["postal"].get<std::string>() + ' ';
-                }
+                // if (!jsonData["postal"].is_null())
+                // {
+                //     ipReplStr += jsonData["postal"].get<std::string>() + ' ';
+                // }
 
-                if (!jsonData["timezone"].is_null())
-                {
-                    ipReplStr += jsonData["timezone"].get<std::string>();
-                }
+                // if (!jsonData["timezone"].is_null())
+                // {
+                //     ipReplStr += jsonData["timezone"].get<std::string>();
+                // }
             }
             // Освобождение ресурсов
             curl_easy_cleanup(curl);

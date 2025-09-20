@@ -35,8 +35,9 @@ public:
     struct Feature
     {
         std::string ip_info_token; // Токен для ipinfo.io
-        bool debug_mode;           // Режим отладки
         std::string log_file;      // Имя файла лога в директории ./log
+        bool verbose_mode;       // Выводить подробную информацию о событиях
+        bool debug_mode;         // Режим отладки
     };
 
     explicit IRCConfig(const std::string &filename);

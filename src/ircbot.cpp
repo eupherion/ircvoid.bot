@@ -70,7 +70,6 @@ void IRCBot::startRead()
 
 void IRCBot::handleRead(const boost::system::error_code &error, size_t bytes_transferred)
 {
-    const auto &feature = config_.get_feature();
     if (!error && bytes_transferred > 0)
     {
         std::string response(data_, bytes_transferred);
@@ -80,10 +79,6 @@ void IRCBot::handleRead(const boost::system::error_code &error, size_t bytes_tra
         {
             std::string line = incomingBuffer_.substr(0, pos);
             incomingBuffer_.erase(0, pos + 2); // Удаляем обработанную строку
-            if (feature.verbose_mode)
-            {
-                std::cout << "[⇩] " << line << std::endl;
-            }
             if (!line.empty())
             {
                 parseServerMessage(line);
@@ -549,12 +544,12 @@ void IRCBot::authNickServ(bool rusnet)
     std::string ns_auth;
     if (rusnet)
     {
-        std::cout << "[i] RusNet NickServ reply formed\n";
+        logWrite("[i] RusNet NickServ reply formed");
         ns_auth = "NICKSERV IDENTIFY " + client.nickserv_password + "\r\n";
     }
     else
     {
-        std::cout << "[i] Normal NickServ reply formed\n";
+        logWrite("[i] Normal NickServ reply formed");
         ns_auth = "PRIVMSG NickServ :IDENTIFY " + client.nickserv_password + "\r\n";
     }
     sendToServer(ns_auth);
@@ -1333,6 +1328,11 @@ void IRCBot::parseServerMessage(const std::string &line)
     // Теперь весь парсинг происходит через IRCMessage
     // Можно использовать ircmsg.command, ircmsg.params, ircmsg.trailing и т.д.
     std::string replydest = "";
+
+    if (ircmsg.command.find("PING") == std::string::npos)
+    {
+        logWrite("[⇩] " + line);
+    }
 
     // Пример: обработка PING
     if (ircmsg.command == "PING")

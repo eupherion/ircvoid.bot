@@ -572,9 +572,13 @@ void IRCBot::joinConfigChans(const std::vector<std::string> &chans)
 
 void IRCBot::handleServerPing(const IRCMessage &msg)
 {
+    const auto &feature = config_.get_feature();
     std::string pong = "PONG :" + msg.trailing + "\r\n";
     sendToServer(pong);
-    std::cout << "[↑] " + pong.substr(0, pong.length() - 2) + '\n';
+    if (!feature.hide_pingpong)
+    {
+        std::cout << "[↑] " + pong.substr(0, pong.length() - 2) + '\n';
+    }
 }
 
 void IRCBot::handleCtcpReply(const IRCMessage &msg)
@@ -1323,6 +1327,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 void IRCBot::parseServerMessage(const std::string &line)
 {
     auto &client = config_.get_client();
+    auto &feature = config_.get_feature();
     ircmsg.parseIrcMessage(line);
 
     // Теперь весь парсинг происходит через IRCMessage
@@ -1338,6 +1343,10 @@ void IRCBot::parseServerMessage(const std::string &line)
     if (ircmsg.command == "PING")
     {
         handleServerPing(ircmsg);
+        if (!feature.hide_pingpong)
+        {
+            std::cout << "[⇩] " << line << std::endl;
+        }
     }
 
     else if (!ircmsg.trailing.empty() && ircmsg.trailing.front() == '\x01' && ircmsg.trailing.back() == '\x01') // CTCP

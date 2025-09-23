@@ -105,6 +105,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         auto botComset = table->get_table("botComset");
         feature_.ip_info_token = *botComset->get_as<std::string>("ipInfoToken");
         feature_.log_file = *botComset->get_as<std::string>("logFileName");
+        feature_.hide_pingpong = *botComset->get_as<bool>("hidePingPong");
         feature_.verbose_mode = *botComset->get_as<bool>("outputVerbose");
         feature_.debug_mode = *botComset->get_as<bool>("outputDebug");
     }
@@ -190,6 +191,7 @@ void IRCConfig::print() const
     std::cout << "[Bot Features]\n";
     std::cout << "IP Info Token: " << feature_.ip_info_token << "\n";
     std::cout << "Log File: " << feature_.log_file << "\n";
+    std::cout << "Ping-Pong Hiding: " << (feature_.hide_pingpong ? "true" : "false") << "\n";
     std::cout << "Output Mode: " << (feature_.verbose_mode ? "Verbose" : "Normal") << "\n";
     std::cout << "Debug Mode: " << (feature_.debug_mode ? "Enabled" : "Disabled") << "\n";
     std::cout << "\n";

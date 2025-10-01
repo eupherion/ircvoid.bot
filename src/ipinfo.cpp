@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <curl/curl.h>
 
-#include "cppjson.h"
+#include "../lib/cppjson.h"
 #include "ipinfo.h"
 
 // Функция обратного вызова для записи данных из ответа сервера

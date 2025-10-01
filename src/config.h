@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "cpptoml.h"
+#include "../lib/cpptoml.h"
 #include <map>
 #include <memory>
 #include <string>

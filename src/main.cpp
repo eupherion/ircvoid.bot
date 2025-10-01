@@ -16,10 +16,16 @@ int main(int argc, char *argv[])
 
         IRCConfig config(config_path);
         const auto &client = config.get_client();
+        const auto &feature = config.get_feature();
+        if (!feature.is_configured)
+        {
+            std::cout << "[!] Bot is not configured. Please configure it first by editing config.toml.\n";
+            return 0;
+        }
         if (!client.auto_connect)
         {
             std::cout << "Bot is not connected to IRC server automatically. Please connect manually.\n";
-            config.print();
+            config.printConfig();
             std::cout << "Connect to IRC now? [Y/n]\n";
             std::string input;
             std::getline(std::cin, input);

@@ -205,8 +205,6 @@ void IRCBot::logWrite(const std::string &message)
 
 void IRCBot::shutdown(const std::string &reason)
 {
-    config_.saveRuntimeConfig();
-    logWrite("[i] Saving runtime config...");
     if (!reason.empty())
     {
         sendToServer("QUIT :" + reason + "\r\n");

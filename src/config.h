@@ -39,6 +39,7 @@ public:
         bool hide_pingpong;        // Скрывать PING-PONG
         bool verbose_mode;         // Выводить подробную информацию о событиях
         bool debug_mode;           // Режим отладки
+        bool is_configured = false; // Флаг, указывающий, что конфигурация была отредактирована
     };
 
     explicit IRCConfig(const std::string &filename);
@@ -47,9 +48,11 @@ public:
     const Client &get_client() const { return client_; }
     const Feature &get_feature() const { return feature_; }
 
-    void saveRuntimeConfig() const;
-    bool validate() const;
-    void print() const;
+    // void saveRuntimeConfig() const;
+    // bool validate() const;
+    // void print() const;
+    void createConfig(const std::string &filename) const;
+    void printConfig() const;
 
 private:
     Server server_;

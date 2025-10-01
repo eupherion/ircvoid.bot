@@ -32,28 +32,75 @@ std::vector<std::string> IRCConfig::split(const std::string &str, char delimiter
     return tokens;
 }
 
-IRCConfig::IRCConfig(const std::string &filename)
-    : runtime_file_(filename.substr(0, filename.find_last_of(".")) + ".run") // Инициализируем
+void IRCConfig::createConfig(const std::string &filename) const
 {
+    std::string config_content = R"(# Пример конфигурационного файла для IRC-бота
+
+[ircServer]	# Параметры IRC сервера
+ircServerHost = "irc.rizon.net"   # Адрес сервера IRC
+ircServerPort = 7000              # Порт сервера IRC
+ircServerPass = ""                # Пароль сервера (ZNC и сервера с паролем)
+
+[ircClient] # Параметры IRC клиента
+ircBotUser = "cbot"               # Имя пользователя бота
+ircBotNick = "CxxBot"             # Основной ник бота
+ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
+ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
+ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
+ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
+ircBotAdmi = "const, aesh"        # Ники администраторов бота
+ircBotAcon = false                # Флаг автозапуска (true/false) - подключаться ли при старте
+ircBotCsym = "."                  # Символ команды бота
+ircBotRcon = ""                   # Сообщения серверу при соединении 
+ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
+
+[botComset] # Параметры дополнительных функций бота
+ipInfoToken = ""               # Токен сервиса ipinfo.io
+logFileName = "mybot.irc.log"  # Имя лог-файла бота
+hidePingPong = true            # Скрывать PING? PONG! сервера
+outputVerbose = true           # RAW вывод на консоль
+outputDebug = false            # Флаг отладочного режима
+botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована
+)";
+    std::string edit_note = R"(Sample config file created. Edit config.toml and run the bot again.)";
+
+    std::ofstream file(filename);
+    if (file.is_open())
+    {
+        file << config_content;
+        file.close();
+        std::cout << "[i] " << edit_note << std::endl;
+    }
+    else
+    {
+        std::cerr << "[ERR] Failed to create default config file: " << filename << std::endl;
+    }
+}
+
+IRCConfig::IRCConfig(const std::string &filename)
+{
+    bool source_exists = std::filesystem::exists(filename); // Проверяем наличие файла
+
+    if (!source_exists)
+    {
+        std::cout << "[i] No config file found. Creating default: " << filename << std::endl;
+        createConfig(filename); // Создаём пример файла
+        if (!std::filesystem::exists(filename))
+        {
+            // На всякий случай, если createConfig не сработал
+            throw std::runtime_error("Failed to create default config file: " + filename);
+        }
+    }
+
     try
     {
-        // Шаг 1: Создаём runtime_file, если его нет
-        if (!std::filesystem::exists(runtime_file_))
+        if (!std::filesystem::exists(filename)) // Проверка на всякий случай
         {
-            if (!std::filesystem::exists(filename))
-            {
-                throw std::runtime_error("Source config file not found: " + filename);
-            }
-            std::filesystem::copy_file(filename, runtime_file_);
-            std::cout << "[i] Created runtime config: " << runtime_file_ << std::endl;
-        }
-        else
-        {
-            std::cout << "[i] Using config from " << runtime_file_ << '\n';
+            throw std::runtime_error("Source config file not found: " + filename);
         }
 
-        // Шаг 2: Парсим из runtime_file
-        auto table = cpptoml::parse_file(runtime_file_);
+        // Шаг 2: Парсим из filename
+        auto table = cpptoml::parse_file(filename);
 
         // [ircServer]
         auto ircServer = table->get_table("ircServer");
@@ -108,59 +155,21 @@ IRCConfig::IRCConfig(const std::string &filename)
         feature_.hide_pingpong = *botComset->get_as<bool>("hidePingPong");
         feature_.verbose_mode = *botComset->get_as<bool>("outputVerbose");
         feature_.debug_mode = *botComset->get_as<bool>("outputDebug");
+        feature_.is_configured = *botComset->get_as<bool>("botConfigured");
     }
     catch (const cpptoml::parse_exception &e)
     {
-        std::cerr << "TOML parsing error: " << e.what() << "\n";
+        std::cerr << "[!] TOML parsing error: " << e.what() << "\n";
         throw;
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error parsing TOML: " << e.what() << "\n";
+        std::cerr << "[!] Error parsing TOML: " << e.what() << "\n";
         throw;
     }
 }
 
-bool IRCConfig::validate() const // Проверка на корректность
-{                                /* Проверка runtime */
-    return true;
-}
-
-void IRCConfig::saveRuntimeConfig() const
-{
-    try
-    {
-        // Парсим текущий runtime_file
-        auto table = cpptoml::parse_file(runtime_file_);
-        auto ircClient = table->get_table("ircClient");
-
-        // Формируем строку каналов: "chan1, chan2, chan3"
-        std::ostringstream oss;
-        for (size_t i = 0; i < client_.channels.size(); ++i)
-        {
-            if (i > 0)
-                oss << ", ";
-            oss << client_.channels[i];
-        }
-        std::string channels_str = oss.str();
-
-        // Устанавливаем новое значение
-        ircClient->insert("ircBotChan", channels_str);
-
-        // Перезаписываем файл
-        std::ofstream out(runtime_file_);
-        out << *table;
-        out.close();
-
-        std::cout << "[i] Runtime config saved: " << runtime_file_ << std::endl;
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "[ERR] Failed to save runtime config: " << e.what() << std::endl;
-    }
-}
-
-void IRCConfig::print() const
+void IRCConfig::printConfig() const
 {
     std::cout << "[IRC Server Configuration]\n";
     std::cout << "Host: " << server_.host << "\n";
@@ -194,5 +203,6 @@ void IRCConfig::print() const
     std::cout << "Ping-Pong Hiding: " << (feature_.hide_pingpong ? "true" : "false") << "\n";
     std::cout << "Output Mode: " << (feature_.verbose_mode ? "Verbose" : "Normal") << "\n";
     std::cout << "Debug Mode: " << (feature_.debug_mode ? "Enabled" : "Disabled") << "\n";
+    std::cout << "Bot Configured: " << (feature_.is_configured ? "true" : "false") << "\n\n";
     std::cout << "\n";
 }

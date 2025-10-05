@@ -83,7 +83,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 
     if (!source_exists)
     {
-        std::cout << "[i] No config file found. Creating default: " << filename << std::endl;
+        std::cout << "[ i ] No config file found. Creating default: " << filename << std::endl;
         createConfig(filename); // Создаём пример файла
         if (!std::filesystem::exists(filename))
         {
@@ -159,12 +159,12 @@ IRCConfig::IRCConfig(const std::string &filename)
     }
     catch (const cpptoml::parse_exception &e)
     {
-        std::cerr << "[!] TOML parsing error: " << e.what() << "\n";
+        std::cerr << "[ERR] Error parsing TOML: " << e.what() << "\n";
         throw;
     }
     catch (const std::exception &e)
     {
-        std::cerr << "[!] Error parsing TOML: " << e.what() << "\n";
+        std::cerr << "[ERR] Error parsing file: " << e.what() << "\n";
         throw;
     }
 }

@@ -49,7 +49,7 @@ ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
 ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
 ircBotAdmi = "const, aesh"        # Ники администраторов бота
-ircBotAcon = false                # Флаг автозапуска (true/false) - подключаться ли при старте
+ircBotAcon = false                # Подключаться ли при старте (только для  работы в foreground, иначе игнорируется)
 ircBotCsym = "."                  # Символ команды бота
 ircBotRcon = ""                   # Сообщения серверу при соединении 
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
@@ -57,10 +57,10 @@ ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 [botComset] # Параметры дополнительных функций бота
 ipInfoToken = ""               # Токен сервиса ipinfo.io
 logFileName = "mybot.irc.log"  # Имя лог-файла бота
-hidePingPong = true            # Скрывать PING? PONG! сервера
-outputVerbose = true           # RAW вывод на консоль
-outputDebug = false            # Флаг отладочного режима
-botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована
+hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
+outputVerbose = true           # RAW вывод на консоль (только при работе в foreground)
+outputDebug = false            # Флаг отладочного режима (только при работе в foreground)
+botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована, иначе не запустится
 )";
     std::string edit_note = R"(Sample config file created. Edit config.toml and run the bot again.)";
 
@@ -69,7 +69,7 @@ botConfigured = false          # Флаг, что дефолтная конфи�
     {
         file << config_content;
         file.close();
-        std::cout << "[i] " << edit_note << std::endl;
+        std::cout << "[ i ] " << edit_note << std::endl;
     }
     else
     {
@@ -83,12 +83,13 @@ IRCConfig::IRCConfig(const std::string &filename)
 
     if (!source_exists)
     {
-        std::cout << "[ i ] No config file found. Creating default: " << filename << std::endl;
-        createConfig(filename); // Создаём пример файла
-        if (!std::filesystem::exists(filename))
+        std::string samplename = "config.toml";
+        std::cout << "[ i ] No config file found. Creating sample: " << samplename << std::endl;
+        createConfig(samplename); // Создаём пример файла
+        if (!std::filesystem::exists(samplename))
         {
             // На всякий случай, если createConfig не сработал
-            throw std::runtime_error("Failed to create default config file: " + filename);
+            throw std::runtime_error("Failed to create default config file: " + samplename);
         }
     }
 

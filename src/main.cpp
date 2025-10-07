@@ -85,10 +85,6 @@ int main(int argc, char *argv[])
     try
     {
         std::string config_path = "config.toml"; // Значение по умолчанию
-        if (argc > 1)
-        {
-            config_path = argv[1];
-        }
         
         bool should_daemonize = true; // Проверка аргумента командной строки
         for (int i = 1; i < argc; ++i)
@@ -96,12 +92,33 @@ int main(int argc, char *argv[])
             if (std::string(argv[i]) == "--fg")
             {
                 should_daemonize = false;
-                break;
+            }
+
+            if (std::string(argv[i]).size() > 5 && std::string(argv[i]).rfind(".toml") == std::string(argv[i]).size() - 5)
+            {
+                if (std::ifstream(argv[i]).good())
+                {
+                    config_path = argv[i];
+                }
+                else
+                {
+                    std::cout << "[ ! ] Config file not found: " << argv[i] << std::endl;
+                    return 1;
+                }
             }
         }
 
         if (should_daemonize)
         {
+            IRCConfig config(config_path);
+            const auto &feature = config.get_feature();
+            if (!feature.is_configured)
+            {
+                std::cout << "[ ! ] Bot is not configured. Please configure it first by editing config.toml.\n";
+                std::cout << "[ ! ] Parameter botConfigured should be set to true in config.toml\n";
+                std::cout << "[ ! ] If you want to run bot in foreground, use --fg argument.\n";
+                return 0;
+            }
             std::cout << "Using config: " << config_path << std::endl;
             std::cout << "Starting bot in daemon mode...\n";
             daemonize();
@@ -116,7 +133,7 @@ int main(int argc, char *argv[])
             const auto &feature = config.get_feature();
             if (!feature.is_configured)
             {
-                std::cout << "[!] Bot is not configured. Please configure it first by editing config.toml.\n";
+                std::cout << "[ ! ] Bot is not configured. Please configure it first by editing config.toml.\n";
                 return 0;
             }
             if (!client.auto_connect)

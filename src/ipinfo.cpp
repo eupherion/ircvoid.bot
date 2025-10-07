@@ -152,20 +152,17 @@ std::vector<std::string> getIpAddr(const std::string &hostname)
     for (struct addrinfo *p = res; p != nullptr; p = p->ai_next)
     {
         void *addr;
-        // std::string ipver;
 
         // Определение типа адреса (IPv4 или IPv6)
         if (p->ai_family == AF_INET)
         { // IPv4
             struct sockaddr_in *ipv4 = reinterpret_cast<struct sockaddr_in *>(p->ai_addr);
             addr = &(ipv4->sin_addr);
-            // ipver = "IPv4";
         }
         else if (p->ai_family == AF_INET6)
         { // IPv6
             struct sockaddr_in6 *ipv6 = reinterpret_cast<struct sockaddr_in6 *>(p->ai_addr);
             addr = &(ipv6->sin6_addr);
-            // ipver = "IPv6";
         }
         else
         {
@@ -175,7 +172,6 @@ std::vector<std::string> getIpAddr(const std::string &hostname)
         // Преобразование адреса в строку
         char ipstr[INET6_ADDRSTRLEN];
         inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
-        // std::cout << ipver << " address: " << ipstr << '\n' << getIpInfo(ipstr) << std::endl;
         ipAddrSet.push_back(std::string(ipstr));
     }
 

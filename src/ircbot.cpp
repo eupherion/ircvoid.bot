@@ -112,8 +112,8 @@ void IRCBot::sendToServer(const std::string &message)
 
 bool IRCBot::isAdmin(const std::string &nick)
 {
-    const auto config = config_.get_client();
-    for (const auto &admin : config.admins)
+    const auto client = config_.get_client();
+    for (const auto &admin : client.admins)
     {
         if (std::equal(admin.begin(), admin.end(),
                        nick.begin(), nick.end(),
@@ -647,7 +647,7 @@ void IRCBot::handleUserJoin(const IRCMessage &msg)
             {
                 // Добавляем пользователя с известными данными
                 users.emplace_back(nick, user, host, ""); // realname = ""
-                logWrite("[ + ] User " + nick + " joined channel " + chanjoined);
+                logWrite("[ → ] User " + nick + " joined channel " + chanjoined);
             }
             else
             {
@@ -698,7 +698,7 @@ void IRCBot::handleUserPart(const IRCMessage &msg)
                 if (it != users.end())
                 {
                     users.erase(it);
-                    logWrite("[ - ] User " + nick + " left channel " + chanleft);
+                    logWrite("[ ⇐ ] User " + nick + " left channel " + chanleft);
                 }
                 updateChanNames(ircmsg, chanleft);
                 break;
@@ -720,7 +720,7 @@ void IRCBot::handleUserQuit(const IRCMessage &msg)
         if (it != users.end())
         {
             users.erase(it);
-            logWrite("[ - ] User " + nick + " quit from all channels");
+            logWrite("[ ⇐ ] User " + nick + " quit from all channels");
         }
     }
 }
@@ -779,7 +779,7 @@ void IRCBot::handleUserKick(const IRCMessage &msg)
             if (it != users.end())
             {
                 users.erase(it);
-                logWrite("[ - ] User " + kicked + " was kicked from " + channel);
+                logWrite("[ ⇐ ] User " + kicked + " was kicked from " + channel);
             }
             updateChanNames(msg, channel);
             break;

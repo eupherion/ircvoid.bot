@@ -419,9 +419,7 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg) // 366 RPL_ENDOFNAMES
         {
             // Список пользователей завершён — считаем, что бот "присоединён"
             channel.isJoined = true;
-            std::cout << "[ + ] Channel " << channelName
-                      << " names saved. There are " << channel.users.size() << " users." << std::endl;
-            logWrite("[ + ] Channel " + channelName + " names saved (366 RPL_ENDOFNAMES)");
+            logWrite("[ + ] Channel " + channelName + " names saved" + std::to_string(channel.users.size()) + " users (366 RPL_ENDOFNAMES)");
             sendToServer("WHO " + channelName + "\r\n");
             logWrite("[ ↑ ] Sent WHO " + channelName + " to server. ");
             break;

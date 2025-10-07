@@ -89,22 +89,13 @@ int main(int argc, char *argv[])
         {
             config_path = argv[1];
         }
-
-        // --- Демонизация происходит ПЕРЕД созданием io_context ---
-        // Вызов daemonize() должен происходить до инициализации boost::asio,
-        // так как асинхронные операции могут зависеть от состояния процесса.
-        // Однако, часто демонизацию делают до main, например, в shell-скрипте
-        // или системным менеджером (systemd), а не внутри программы.
-        // Если вы хотите, чтобы бот *всегда* запускался в фоне, когда вызывается с определённым флагом,
-        // можно добавить проверку: `if (should_daemonize) daemonize();`
-
-        // Пример: проверка аргумента командной строки
-        bool should_daemonize = false;
+        
+        bool should_daemonize = true; // Проверка аргумента командной строки
         for (int i = 1; i < argc; ++i)
         {
-            if (std::string(argv[i]) == "--daemon")
+            if (std::string(argv[i]) == "--fg")
             {
-                should_daemonize = true;
+                should_daemonize = false;
                 break;
             }
         }
@@ -128,7 +119,7 @@ int main(int argc, char *argv[])
                 std::cout << "[!] Bot is not configured. Please configure it first by editing config.toml.\n";
                 return 0;
             }
-            if (!client.auto_connect && !should_daemonize)
+            if (!client.auto_connect)
             {
                 std::cout << "Bot is not connected to IRC server automatically. Please connect manually.\n";
                 config.printConfig();

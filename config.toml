@@ -23,5 +23,6 @@ ipInfoToken = ""               # Токен сервиса ipinfo.io
 logFileName = "mybot.irc.log"  # Имя лог-файла бота
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputVerbose = true           # RAW вывод на консоль (только при работе в foreground)
+outputRawData = false          # Log RAW IRC data from server
 outputDebug = false            # Флаг отладочного режима (только при работе в foreground)
 botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована, иначе не запустится

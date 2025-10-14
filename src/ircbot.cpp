@@ -744,37 +744,28 @@ void IRCBot::handleUserQuit(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandHelp(const IRCMessage &msg)
+void IRCBot::handleCommandHelp(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto client = config_.get_client();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
-    if (cmdargs.empty())
+
+    if (args.empty())
     {
         sendToServer("NOTICE " + msg.prefix.nick + " :Available commands: " + client.command_symbol + "help, " + client.command_symbol + "loc, " + client.command_symbol + "ip\r\n");
-        logWrite("[ i ] Bot Command " + cmdline[0] + " received by <" + msg.prefix.nick + "> :" + msg.trailing);
+        logWrite("[ i ] Bot Command HELP received by <" + msg.prefix.nick + "> :" + msg.trailing);
         logWrite("[ ↑ ] Sent help notice to <" + msg.prefix.nick + ">");
     }
-    else if (cmdargs[0] == "loc")
+    else if (args[0] == "loc")
     {
-        if (cmdargs.size() == 1)
+        if (args.size() == 1)
         {
             sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n");
             logWrite("[ ↑ ] Sent LOC help notice to <" + msg.prefix.nick + ">");
         }
     }
-    else if (cmdargs[0] == "ip")
+    else if (args[0] == "ip")
     {
-        if (cmdargs.size() == 1)
+        if (args.size() == 1)
         {
             sendToServer("NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "ip <host>\r\n");
             logWrite("[ ↑ ] Sent IP help notice to <" + msg.prefix.nick + ">");
@@ -825,26 +816,17 @@ void IRCBot::handleNickChange(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandIp(const IRCMessage &msg)
+void IRCBot::handleCommandInfo(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto &client = config_.get_client();
     auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
-    logWrite("[ i ] Bot Command " + cmdline[0] + " received from <" + msg.prefix.nick + "> :" + msg.trailing);
 
-    if (!cmdargs.empty())
+    logWrite("[ i ] Bot Command INFO received from <" + msg.prefix.nick + "> :" + msg.trailing);
+
+    if (!args.empty())
     {
-        std::vector<std::string> ipvect = getIpAddr(cmdargs[0]);
+        std::vector<std::string> ipvect = getIpAddr(args[0]);
         if (!ipvect.empty())
         {
             if (ipvect.size() == 1)
@@ -855,7 +837,7 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
             }
             else if (ipvect.size() > 1)
             {
-                std::string replyHeader = "IPs for " + cmdargs[0] + ": ";
+                std::string replyHeader = "IPs for " + args[0] + ": ";
                 std::vector<std::string> replyBody;
                 replyBody.push_back(replyHeader);
                 for (size_t i = 0; i < ipvect.size(); i++)
@@ -872,8 +854,8 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
         }
         else
         {
-            sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + cmdargs[0] + "\r\n");
-            logWrite("[ ! ] No IP addresses found for " + cmdargs[0]);
+            sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + args[0] + "\r\n");
+            logWrite("[ ! ] No IP addresses found for " + args[0]);
         }
     }
     else
@@ -882,32 +864,23 @@ void IRCBot::handleCommandIp(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandLoc(const IRCMessage &msg)
+void IRCBot::handleCommandLoc(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto &client = config_.get_client();
     auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     std::string loc_reply = "";
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
-    logWrite("[ i ] Bot Command " + cmdline[0] + " received from <" + msg.prefix.nick + "> :" + msg.trailing);
+
+    logWrite("[ i ] Bot Command LOC received from <" + msg.prefix.nick + "> :" + msg.trailing);
 
     bool found = false;
-    if (!cmdargs.empty())
+    if (!args.empty())
     {
         for (const auto &chan : channels)
         {
             for (const auto &user : chan.users)
             {
-                if (user.nick == cmdargs[0])
+                if (user.nick == args[0])
                 {
                     found = true;
                     if (user.host.find("in-addr") == std::string::npos)
@@ -950,10 +923,10 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
         }
         if (!found)
         {
-            logWrite("[ i ] User <" + cmdargs[0] + "> not found in joined channels, sending WHO command");
+            logWrite("[ i ] User <" + args[0] + "> not found in joined channels, sending WHO command");
             requestInfo = true; // Запросим информацию о пользователе
             reply_to = replydest;
-            sendToServer("WHO " + cmdargs[0] + "\r\n");
+            sendToServer("WHO " + args[0] + "\r\n");
         }
     }
     else
@@ -964,7 +937,7 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandChan(const IRCMessage &msg)
+void IRCBot::handleCommandChan(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     const auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
@@ -987,6 +960,10 @@ void IRCBot::handleCommandChan(const IRCMessage &msg)
         if (!currentchans.empty())
         {
             sendToServer("PRIVMSG " + replydest + " :Joined channels: " + currentchans + "\r\n");
+            if (!args.empty())
+            {
+                sendToServer("PRIVMSG " + replydest + " :This command has no arguments.\r\n");
+            }
             logWrite("[ ↑ ] Sent CHAN reply to <" + replydest + ">: Joined channels: " + currentchans);
         }
         else
@@ -1009,20 +986,11 @@ void IRCBot::handleCommandChan(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandQuit(const IRCMessage &msg)
+void IRCBot::handleCommandQuit(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto &client = config_.get_client();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
+
     if (client.admins.empty())
     {
         std::cout << "[ERR] Admins list is empty\n";
@@ -1031,9 +999,9 @@ void IRCBot::handleCommandQuit(const IRCMessage &msg)
     else
     {
         std::string reason = "";
-        if (!cmdargs.empty())
+        if (!args.empty())
         {
-            for (const auto &arg : cmdargs)
+            for (const auto &arg : args)
             {
                 if (!arg.empty())
                 {
@@ -1067,26 +1035,16 @@ void IRCBot::handleCommandQuit(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandJoin(const IRCMessage &msg)
+void IRCBot::handleCommandJoin(const IRCMessage &msg, const std::vector<std::string> &args)
 {
-    //auto &client = config_.get_client();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
+
     if (isAdmin(msg.prefix.nick))
     {
         std::string chanjoin = "";
-        if (!cmdargs.empty())
+        if (!args.empty())
         {
-            chanjoin = extractChan(cmdargs[0]);
+            chanjoin = extractChan(args[0]);
             if (!chanjoin.empty())
             {
                 sendToServer("JOIN " + chanjoin + "\r\n");
@@ -1107,26 +1065,17 @@ void IRCBot::handleCommandJoin(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandPart(const IRCMessage &msg)
+void IRCBot::handleCommandPart(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     //auto &client = config_.get_client();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
+
     if (isAdmin(msg.prefix.nick))
     {
         std::string chanpart = "";
-        if (!cmdargs.empty())
+        if (!args.empty())
         {
-            chanpart = extractChan(cmdargs[0]);
+            chanpart = extractChan(args[0]);
             if (chanpart.empty())
             {
                 sendToServer("NOTICE " + msg.prefix.nick + " :Invalid channel name.\r\n");
@@ -1172,7 +1121,7 @@ void IRCBot::handleCommandPart(const IRCMessage &msg)
     }
 }
 
-void IRCBot::handleCommandNick(const IRCMessage &msg, std::vector<std::string> &args)
+void IRCBot::handleCommandNick(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     if (isAdmin(msg.prefix.nick))
     {
@@ -1208,25 +1157,16 @@ void IRCBot::handleCommandNick(const IRCMessage &msg, std::vector<std::string> &
     }
 }
 
-void IRCBot::handleCommandNames(const IRCMessage &msg)
+void IRCBot::handleCommandNames(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     //auto &client = config_.get_client();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-    std::string msgtext = boost::algorithm::trim_copy(msg.trailing);
-    std::vector<std::string> cmdline = splitStringBySpaces(msgtext);
-    std::vector<std::string> cmdargs;
-    if (cmdline.size() > 1)
-    {
-        for (size_t i = 1; i < cmdline.size(); i++)
-        {
-            cmdargs.push_back(cmdline[i]);
-        }
-    }
+
     if (isAdmin(msg.prefix.nick))
     {
-        if (!cmdargs.empty())
+        if (!args.empty())
         {
-            for (const auto &arg : cmdargs)
+            for (const auto &arg : args)
             {
                 if (!arg.empty())
                 {
@@ -1273,12 +1213,11 @@ void IRCBot::handleCommandNames(const IRCMessage &msg)
 void IRCBot::handlePrivMsg(const IRCMessage &msg)
 {
     const auto &client = config_.get_client();
-    const auto &feature = config_.get_feature();
-    std::string replydest;
+
     std::string msgtext = boost::algorithm::trim_copy(msg.trailing); // без пробелов в начале и конце
     std::string command = ""; // команда боту
     std::vector<std::string> cmdargs = {}; // аргументы команды
-    replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+
     if (!msgtext.empty() && msgtext[0] == client.command_symbol)
     {
         // Разбиваем строку на слова
@@ -1297,63 +1236,26 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
         }
     }
 
-    if (feature.debug_mode)
-    {
-        std::cout << "[DBG]: ircmsg.prefix: " << msg.prefix.nick << "!" << msg.prefix.ident << "@" << msg.prefix.host << std::endl;
-        std::cout << "[DBG]: ircmsg.command: " << msg.command << std::endl;
-        for (size_t i = 0; i < msg.params.size(); ++i)
-        {
-            std::cout << "[DBG]: ircmsg.param[" << i << "]: " << msg.params[i] << std::endl;
-        }
-        if (!msg.trailing.empty())
-        {
-            std::cout << "[DBG]: ircmsg.trailing: " << msg.trailing << std::endl;
-        }
-        if (!command.empty())
-        {
-            if (!cmdargs.empty())
-            {
-                std::cout << "[DBG]: command: [" << command << ']' << std::endl;
-                std::cout << "[DBG]: cmdargs: ";
-                for (const auto &arg : cmdargs)
-                {
-                    if (!arg.empty())
-                    {
-                        std::cout << '[' << arg << ']';
-                    }
-                }
-                std::cout << std::endl;
-            }
-            else
-            {
-                std::cout << "[DBG]: command: [" << command << "] (no args)" << std::endl;
-            }
-        }
-        if (!replydest.empty())
-        {
-            std::cout << "[DBG]: Reply Destination: " << replydest << std::endl;
-        }
-    }
     logWrite("[MSG] <" + msg.prefix.nick + "> ⇨ <" + msg.params[0] + "> :" + msgtext);
 
     if (command == "chan")
     {
-        handleCommandChan(msg); // Показывает список каналов
+        handleCommandChan(msg, cmdargs); // Показывает список каналов
     }
 
     else if (command == "quit")
     {
-        handleCommandQuit(msg); // Выход из бота
+        handleCommandQuit(msg, cmdargs); // Выход из бота
     }
 
     else if (command == "join")
     {
-        handleCommandJoin(msg); // Подключается к каналу
+        handleCommandJoin(msg, cmdargs); // Подключается к каналу
     }
 
     else if (command == "part")
     {
-        handleCommandPart(msg); // Покидает канал
+        handleCommandPart(msg, cmdargs); // Покидает канал
     }
 
     else if (command == "nick")
@@ -1363,22 +1265,22 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
 
     else if (command == "names")
     {
-        handleCommandNames(msg); // Показывает список участников канала
+        handleCommandNames(msg, cmdargs); // Показывает список участников канала
     }
 
     else if (command == "loc") // :yournick!~yourhost@yourip PRIVMSG #channel :.loc <nick>
     {
-        handleCommandLoc(msg);
+        handleCommandLoc(msg, cmdargs);
     }
 
     else if (command == "ip" || command == "info") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip <host>
     {
-        handleCommandIp(msg);
+        handleCommandInfo(msg, cmdargs);
     }
 
     else if (command == "help") // :yournick!~yourhost@yourip PRIVMSG #channel :.help
     {
-        handleCommandHelp(msg);
+        handleCommandHelp(msg, cmdargs);
     }
 }
 
@@ -1449,6 +1351,11 @@ void IRCBot::parseServerMessage(const std::string &line)
     else if (ircmsg.command == "364") // [RPL_WHOSPCRPL] :server 364 yournick nick host :realname
     {
         logWrite("[ + ] " + ircmsg.trailing + " is online. (RPL_WHOSPCRPL)");
+    }
+
+    else if (ircmsg.command == "403") // [ERR_NOSUCHCHANNEL] :server 403 yournick #channel :No such channel.
+    {
+        logWrite("[ + ] Channel " + ircmsg.params[1] + " not found. (ERR_NOSUCHCHANNEL)");
     }
 
     else if (ircmsg.command == "433") // [ERR_NICKNAMEINUSE] :server 433 * nick :Nickname is already in use.

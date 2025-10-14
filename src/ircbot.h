@@ -113,7 +113,7 @@ private:
     void joinConfigChans(const std::vector<std::string> &chans);
     void handleServerPing(const IRCMessage &msg);
     void handleCtcpReply(const IRCMessage &msg);
-    void updateChanNames(const IRCMessage &msg, const std::string &chame);
+    void updateChanNames(const IRCMessage &msg, const std::string &chname);
     void handleNamesReply(const IRCMessage &msg);
     void handleEndOfNames(const IRCMessage &msg);
     void handleWhoReply(const IRCMessage &msg, bool request, const std::string &rpl);
@@ -125,16 +125,16 @@ private:
     void handleNickChange(const IRCMessage &msg);
     void handlePrivMsg(const IRCMessage &msg);
 
-    // // --- Команды бота ---
-    void handleCommandIp(const IRCMessage &msg);
-    void handleCommandLoc(const IRCMessage &msg);
-    void handleCommandHelp(const IRCMessage &msg);
-    void handleCommandChan(const IRCMessage &msg);
-    void handleCommandJoin(const IRCMessage &msg);
-    void handleCommandPart(const IRCMessage &msg);
-    void handleCommandNick(const IRCMessage &msg, std::vector<std::string> &args);
-    void handleCommandQuit(const IRCMessage &msg);
-    void handleCommandNames(const IRCMessage &msg);
+    // --- Команды бота ---
+    void handleCommandLoc(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandInfo(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandHelp(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandChan(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandJoin(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandPart(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandNick(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandQuit(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandNames(const IRCMessage &msg, const std::vector<std::string> &args);
 
     // --- Утилиты ---
     bool isAdmin(const std::string &nick);

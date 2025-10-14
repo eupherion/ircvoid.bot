@@ -8,7 +8,7 @@ ircServerPass = ""                # Пароль сервера (ZNC и серв
 [ircClient] # Параметры IRC клиента
 ircBotUser = "cbot"               # Имя пользователя бота
 ircBotNick = "CxxBot"             # Основной ник бота
-ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
+ircBotNalt = "CxxBot_"            # Альтернативный ник
 ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
 ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении

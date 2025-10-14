@@ -12,18 +12,18 @@ class IRCConfig
 public:
     struct Server
     {
-        std::string host;
-        int port;
-        std::string password;
+        std::string host; // Хост IRC сервера
+        int port; // Порт IRC сервера
+        std::string password; // Пароль к IRC серверу
     };
 
     struct Client
     {
-        std::string username;
+        std::string username; // Имя пользователя
         std::string nickname; // Основной ник
         std::string alt_nick; // Альтернативный ник
         std::string realname; // RealName
-        std::string nickserv_password;
+        std::string nickserv_password;       // Пароль для NickServ
         std::vector<std::string> channels;  // Каналы
         std::vector<std::string> admins;    // Админы
         std::string run_at_connect;         // Команды после подключения

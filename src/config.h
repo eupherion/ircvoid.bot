@@ -21,11 +21,11 @@ public:
     {
         std::string username;
         std::string nickname; // Основной ник
+        std::string alt_nick; // Альтернативный ник
         std::string realname; // RealName
         std::string nickserv_password;
         std::vector<std::string> channels;  // Каналы
         std::vector<std::string> admins;    // Админы
-        std::vector<std::string> alt_nicks; // Альтернативные ники
         std::string run_at_connect;         // Команды после подключения
         std::string dcc_version;            // Версия для CTCP VERSION
         bool auto_connect;                  // Автозапуск

@@ -2,13 +2,14 @@
 #ifndef IRCBOT_H
 #define IRCBOT_H
 
-#include "config.h" // Предполагается, что IRCConfig определён там
+#include "config.h" // IRCConfig определён там
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <regex>
 #include <string>
 #include <thread>
@@ -93,6 +94,7 @@ private:
 
     // --- Внутренние данные ---
     IRCMessage ircmsg;
+    std::string bot_nick; // Изменяемое значение ника бота
     std::vector<IRCChan> channels;
     bool rusnetAuth = false;
     bool requestInfo = false;
@@ -130,6 +132,7 @@ private:
     void handleCommandChan(const IRCMessage &msg);
     void handleCommandJoin(const IRCMessage &msg);
     void handleCommandPart(const IRCMessage &msg);
+    void handleCommandNick(const IRCMessage &msg, std::vector<std::string> &args);
     void handleCommandQuit(const IRCMessage &msg);
     void handleCommandNames(const IRCMessage &msg);
 

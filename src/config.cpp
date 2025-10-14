@@ -44,7 +44,7 @@ ircServerPass = ""                # Пароль сервера (ZNC и серв
 [ircClient] # Параметры IRC клиента
 ircBotUser = "cbot"               # Имя пользователя бота
 ircBotNick = "CxxBot"             # Основной ник бота
-ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
+ircBotNalt = "CxxBot_"            # Альтернативный ник
 ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
 ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
@@ -114,6 +114,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         auto ircClient = table->get_table("ircClient");
         client_.username = *ircClient->get_as<std::string>("ircBotUser");
         client_.nickname = *ircClient->get_as<std::string>("ircBotNick");
+        client_.alt_nick = *ircClient->get_as<std::string>("ircBotNalt");
         client_.realname = *ircClient->get_as<std::string>("ircBotRnam");
         client_.nickserv_password = *ircClient->get_as<std::string>("ircBotNspw");
 
@@ -124,16 +125,6 @@ IRCConfig::IRCConfig(const std::string &filename)
         // Получаем список админов
         std::string admins_str = *ircClient->get_as<std::string>("ircBotAdmi");
         client_.admins = split(admins_str, ',');
-
-        // Получаем список альтернативных никнеймов
-        if (auto alt_nicks = ircClient->get_array_of<std::string>("ircBotNalt"))
-        {
-            client_.alt_nicks = *alt_nicks;
-        }
-        else
-        {
-            client_.alt_nicks.push_back(client_.nickname + "_");
-        }
 
         client_.run_at_connect = *ircClient->get_as<std::string>("ircBotRcon");
         client_.dcc_version = *ircClient->get_as<std::string>("ircBotDccv");
@@ -182,6 +173,7 @@ void IRCConfig::printConfig() const
     std::cout << "[IRC Client Configuration]\n";
     std::cout << "Username: " << client_.username << "\n";
     std::cout << "Main Nick: " << client_.nickname << "\n";
+    std::cout << "Alt Nick: " << (client_.alt_nick.empty() ? "(none)" : client_.alt_nick) << "\n";
     std::cout << "RealName: " << client_.realname << "\n";
     std::cout << "NickServ Password: " << (client_.nickserv_password.empty() ? "(none)" : "*hidden*") << "\n";
 

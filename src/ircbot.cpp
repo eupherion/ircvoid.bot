@@ -8,6 +8,12 @@
 IRCBot::IRCUser::IRCUser(const std::string &n, const std::string &u, const std::string &h, const std::string &r)
     : nick(n), user(u), host(h), realname(r) {}
 
+// Определение оператора == для IRCUser (только по нику)
+bool IRCBot::IRCUser::operator==(const IRCBot::IRCUser &other) const
+{
+    return this->nick == other.nick;
+}
+
 // Конструктор IRCChan
 IRCBot::IRCChan::IRCChan(const std::string &n, const std::string &t)
     : name(n), topic(t), users(), isJoined(false) {}
@@ -29,16 +35,16 @@ void IRCBot::handleConnect(const boost::system::error_code &error)
 {
     const auto &server = config_.get_server();
     const auto &client = config_.get_client();
+    bot_nick = client.nickname;
     if (!error)
     {
-        std::string logentry = "[ + ] Connected to " + server.host + ":" + std::to_string(server.port);
-        logWrite(logentry);
+        logWrite("[ + ] Connected to " + server.host + ":" + std::to_string(server.port));
         std::string message("");
         if (!server.password.empty())
         {
             message += "PASS " + server.password + "\r\n";
         }
-        message += "NICK " + client.nickname + "\r\n";
+        message += "NICK " + bot_nick + "\r\n";
         message += "USER " + client.username + " 0 * :" + client.realname + "\r\n";
 
         boost::asio::async_write(socket_, boost::asio::buffer(message),
@@ -98,7 +104,7 @@ void IRCBot::start(void)
     tcp::resolver resolver(socket_.get_executor());
     auto endpoints = resolver.resolve(server.host, std::to_string(server.port));
     boost::asio::async_connect(socket_, endpoints,
-                               boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1 /* , client.nickname, server.password */));
+                               boost::bind(&IRCBot::handleConnect, this, boost::placeholders::_1));
 }
 
 void IRCBot::sendToServer(const std::string &message)
@@ -248,7 +254,6 @@ void IRCBot::IRCPrefix::parseIrcPrefix(const std::string &prefixStr)
 void IRCBot::IRCMessage::parseIrcMessage(const std::string &rawMsg)
 {
     std::string msg = rawMsg;
-    // std::cout << "[Parsing RAW] " << msg << std::endl;
     boost::trim(msg);
     if (msg.empty())
         return;
@@ -348,7 +353,7 @@ void IRCBot::updateChanNames(const IRCMessage &msg, const std::string &chname)
 void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
 {
     auto client = config_.get_client();
-    if (msg.params[0] == client.nickname && msg.params[2].find('#') != std::string::npos)
+    if (msg.params[0] == bot_nick && msg.params[2].find('#') != std::string::npos)
     {
         auto nicklist = splitStringBySpaces(msg.trailing);
         std::string channelName = msg.params[2];
@@ -530,10 +535,10 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
 
 bool IRCBot::detectRusNet(const IRCMessage &msg)
 {
-    auto &client = config_.get_client();
+    //auto &client = config_.get_client();
     logWrite("[ i ] " + msg.trailing);
     logWrite("[ i ] RusNet Server detected");
-    std::string setmode = "MODE " + client.nickname + " +ix\r\n";
+    std::string setmode = "MODE " + bot_nick + " +ix\r\n";
     sendToServer(setmode);
     logWrite("[ + ] " + setmode.substr(0, setmode.length() - 2));
     return true;
@@ -685,7 +690,7 @@ void IRCBot::handleUserPart(const IRCMessage &msg)
     std::string chanleft = msg.params[0];
     std::string nick = msg.prefix.nick;
 
-    if (nick == client.nickname)
+    if (nick == bot_nick)
     {
         // Бот покидает канал
         auto &chans = channels;
@@ -1167,6 +1172,42 @@ void IRCBot::handleCommandPart(const IRCMessage &msg)
     }
 }
 
+void IRCBot::handleCommandNick(const IRCMessage &msg, std::vector<std::string> &args)
+{
+    if (isAdmin(msg.prefix.nick))
+    {
+        if (args.size() >= 1)
+        {
+            std::string newnick = args[0];
+            if (newnick != bot_nick)
+            {
+                if (newnick.size() <= 16)
+                {
+                    sendToServer("NICK " + newnick + "\r\n");
+                    logWrite("[ i ] Changing nick to " + newnick + " by <" + msg.prefix.nick + ">");
+                    bot_nick = newnick;
+                }
+                else
+                {
+                    if (newnick.size() > 16)
+                    {
+                        sendToServer("NOTICE " + msg.prefix.nick + " :New nick is too long.\r\n");
+                        logWrite("[ - ] Nick change failed: new nick is too long. [" + newnick + "]");
+                    }
+                }
+            }
+        }
+        if (args.size() == 0)
+        {
+                sendToServer("NOTICE " + msg.prefix.nick + " :No new nick specified.\r\n");
+        }
+    }
+    else
+    {
+        sendToServer("NOTICE " + msg.prefix.nick + " :You are not an admin.\r\n");
+    }
+}
+
 void IRCBot::handleCommandNames(const IRCMessage &msg)
 {
     //auto &client = config_.get_client();
@@ -1315,6 +1356,11 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
         handleCommandPart(msg); // Покидает канал
     }
 
+    else if (command == "nick")
+    {
+        handleCommandNick(msg, cmdargs);
+    }
+
     else if (command == "names")
     {
         handleCommandNames(msg); // Показывает список участников канала
@@ -1398,6 +1444,31 @@ void IRCBot::parseServerMessage(const std::string &line)
         {
             handleNamesReply(ircmsg);
         }
+    }
+
+    else if (ircmsg.command == "364") // [RPL_WHOSPCRPL] :server 364 yournick nick host :realname
+    {
+        logWrite("[ + ] " + ircmsg.trailing + " is online. (RPL_WHOSPCRPL)");
+    }
+
+    else if (ircmsg.command == "433") // [ERR_NICKNAMEINUSE] :server 433 * nick :Nickname is already in use.
+    {
+        logWrite("[ + ] Nickname is already in use. Trying to change nick...");
+        if (!client.alt_nick.empty())
+        {
+            bot_nick = client.alt_nick;
+        }
+        else
+        {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+            std::uniform_int_distribution<int> dist(1000, 9999);
+            bot_nick += std::to_string(dist(gen));
+        }
+        sendToServer("NICK " + bot_nick + "\r\n");
+        logWrite("[ + ] Nickname changed to " + bot_nick + ".");
+        sendToServer("USER " + client.username + " 0 * :" + client.realname + "\r\n");
+        logWrite("[ + ] User info sent. Trying to auth with NickServ...");
     }
 
     else if (ircmsg.command == "366") // [RPL_ENDOFNAMES] :server 366 yournick #channel :End of /NAMES list.

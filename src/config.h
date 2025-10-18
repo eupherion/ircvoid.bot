@@ -37,7 +37,7 @@ public:
         std::string ip_info_token;  // Токен для ipinfo.io
         std::string log_file;       // Имя файла лога в директории ./log
         bool hide_pingpong;         // Скрывать PING-PONG
-        bool verbose_mode;          // Выводить подробную информацию о событиях
+        bool output_tty;          // Выводить подробную информацию о событиях
         bool output_raw;            // Выводить RAW данные
         bool debug_mode;            // Режим отладки
         bool is_configured = false; // Флаг, указывающий, что конфигурация была отредактирована

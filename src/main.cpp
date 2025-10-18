@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
             std::cout << "Starting bot in daemon mode...\n";
             daemonize();
             // После демонизации вывод в std::cout/std::cerr не будет работать,
-            // так как они перенаправлены в /dev/null. Используйте логирование в файл.
+            // так как они перенаправлены в /dev/null. Используется логирование в файл.
         }
         else
         {

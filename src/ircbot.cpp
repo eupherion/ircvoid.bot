@@ -203,7 +203,7 @@ void IRCBot::logWrite(const std::string &message)
     {
         std::cerr << "[ERR] Exception in logWrite(): " << ex.what() << std::endl;
     }
-    if (feature.verbose_mode)
+    if (feature.output_tty)
     {
             std::cout << message << std::endl; // TODO: Перенести в отдельный поток
     }
@@ -328,6 +328,7 @@ void IRCBot::IRCMessage::parseIrcMessage(const std::string &rawMsg)
 
 void IRCBot::updateChanNames(const IRCMessage &msg, const std::string &chname)
 {
+    const auto feature = config_.get_feature();
     // Проверяем, существует ли канал в векторе channels
     auto it = std::find_if(channels.begin(), channels.end(),
                            [&chname](const IRCChan &c)
@@ -346,13 +347,17 @@ void IRCBot::updateChanNames(const IRCMessage &msg, const std::string &chname)
         it->isJoined = false; // Будет снова установлен при 366
 
         sendToServer("NAMES " + chname + "\r\n"); // Запрашиваем имена канала
-        logWrite("[ ↑ ] Sent NAMES request for " + chname);
+        if (feature.debug_mode)
+        {
+            logWrite("[ ↑ ] Sent NAMES request for " + chname);
+        }
     }
 }
 
 void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
 {
-    auto client = config_.get_client();
+    const auto client = config_.get_client();
+    const auto feature = config_.get_feature();
     if (msg.params[0] == bot_nick && msg.params[2].find('#') != std::string::npos)
     {
         auto nicklist = splitStringBySpaces(msg.trailing);
@@ -389,10 +394,12 @@ void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
                         userSet.insert(clean_nick);             // Добавляем в set для последующих проверок
                     }
                 }
-                logWrite("[ + ] Updated user list for " + channelName +
-                         " : " + std::to_string(existingUsers.size()) +
-                         " users (353 RPL_NAMREPLY)"
-                        );
+                if (feature.debug_mode)
+                {
+                    logWrite("[ + ] Updated user list for " + channelName +
+                             " : " + std::to_string(existingUsers.size()) +
+                             " users (353 RPL_NAMREPLY)");
+                }
                 break;
             }
         }
@@ -410,16 +417,19 @@ void IRCBot::handleNamesReply(const IRCMessage &msg) // 353 RPL_NAMREPLY
             channels.emplace_back(channelName, "");
             auto &newChan = channels.back();
             newChan.users = std::move(users);
-            logWrite("[ + ] Channel " + newChan.name + " [" +
-                     std::to_string(newChan.users.size()) +
-                     " users] added to internal list"
-                    );
+            if (feature.debug_mode)
+            {
+                logWrite("[ + ] Channel " + newChan.name + " [" +
+                         std::to_string(newChan.users.size()) +
+                         " users] added to internal list");
+            }
         }
     }
 }
 
 void IRCBot::handleEndOfNames(const IRCMessage &msg) // 366 RPL_ENDOFNAMES
 {
+    const auto feature = config_.get_feature();
     std::string channelName = msg.params[1];
 
     for (auto &channel : channels)
@@ -428,10 +438,13 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg) // 366 RPL_ENDOFNAMES
         {
             // Список пользователей завершён — считаем, что бот "присоединён"
             channel.isJoined = true;
-            logWrite("[ + ] Channel " + channelName + " names saved [" +
-                     std::to_string(channel.users.size()) + " users] (366 RPL_ENDOFNAMES)");
             sendToServer("WHO " + channelName + "\r\n");
-            logWrite("[ ↑ ] Sent WHO " + channelName + " to server. ");
+            if (feature.debug_mode)
+            {
+                logWrite("[ + ] Channel " + channelName + " names saved [" +
+                         std::to_string(channel.users.size()) + " users] (366 RPL_ENDOFNAMES)");
+                logWrite("[ ↑ ] Sent WHO " + channelName + " to server. ");
+            }
             break;
         }
     }
@@ -648,6 +661,7 @@ void IRCBot::handleCtcpReply(const IRCMessage &msg)
 
 void IRCBot::handleUserJoin(const IRCMessage &msg)
 {
+    const auto feature = config_.get_feature();
     std::string chanjoined = extractChan(msg.trailing);
     std::string nick = msg.prefix.nick;
     std::string user = msg.prefix.ident;
@@ -675,7 +689,10 @@ void IRCBot::handleUserJoin(const IRCMessage &msg)
                 {
                     it->user = user;
                     it->host = host;
-                    logWrite("[ i ] Updated hostmask for <" + nick + "> in channel " + chanjoined + ": " + user + "@" + host);
+                    if (feature.debug_mode)
+                    {
+                        logWrite("[ i ] Updated hostmask for <" + nick + "> in channel " + chanjoined + ": " + user + "@" + host);
+                    }
                 }
             }
             updateChanNames(ircmsg, chanjoined);
@@ -1200,6 +1217,7 @@ void IRCBot::handleCommandNames(const IRCMessage &msg, const std::vector<std::st
             {
                 updateChanNames(msg, chan.name);
                 sendToServer("NOTICE " + msg.prefix.nick + " :Channel " + chan.name + " NAMES updated\r\n");
+                logWrite("[ i ] Channel " + chan.name + " NAMES updated [" + std::to_string(chan.users.size()) + " users]" + "\r\n");
                 // std::this_thread::sleep_for(std::chrono::milliseconds(500));
             }
         }

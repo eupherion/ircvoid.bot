@@ -58,7 +58,7 @@ ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 ipInfoToken = ""               # Токен сервиса ipinfo.io
 logFileName = "mybot.irc.log"  # Имя лог-файла бота
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
-outputVerbose = true           # Вывод внутренних событий бота на консоль (только при работе в foreground)
+outputConsole = true           # Вывод событий бота на консоль (только при работе в foreground)
 outputRawData = true           # Вывод RAW траффика от IRC сервера на консоль (только при работе в foreground)
 outputDebug = false            # Флаг отладочного режима (только при работе в foreground)
 botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована, иначе не запустится
@@ -138,7 +138,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         }
         else
         {
-            client_.command_symbol = '.';
+            client_.command_symbol = '.'; // По умолчанию
         }
 
         // [botComset]
@@ -146,7 +146,7 @@ IRCConfig::IRCConfig(const std::string &filename)
         feature_.ip_info_token = *botComset->get_as<std::string>("ipInfoToken");
         feature_.log_file = *botComset->get_as<std::string>("logFileName");
         feature_.hide_pingpong = *botComset->get_as<bool>("hidePingPong");
-        feature_.verbose_mode = *botComset->get_as<bool>("outputVerbose");
+        feature_.output_tty = *botComset->get_as<bool>("outputConsole");
         feature_.output_raw = *botComset->get_as<bool>("outputRawData");
         feature_.debug_mode = *botComset->get_as<bool>("outputDebug");
         feature_.is_configured = *botComset->get_as<bool>("botConfigured");
@@ -195,8 +195,8 @@ void IRCConfig::printConfig() const
     std::cout << "[Bot Features Settings]\n";
     std::cout << "IP Info Token: " << feature_.ip_info_token << "\n";
     std::cout << "Log File: " << feature_.log_file << "\n";
-    std::cout << "Ping-Pong Hiding: " << (feature_.hide_pingpong ? "true" : "false") << "\n";
-    std::cout << "Output Mode: " << (feature_.verbose_mode ? "Verbose" : "Normal") << "\n";
+    std::cout << "Ping-Pong's: " << (feature_.hide_pingpong ? "Hidden" : "Show") << "\n";
+    std::cout << "Output Mode: " << (feature_.output_tty ? "Console" : "Silent") << "\n";
     std::cout << "Output Raw: " << (feature_.output_raw ? "true" : "false") << "\n";
     std::cout << "Debug Mode: " << (feature_.debug_mode ? "Enabled" : "Disabled") << "\n";
     std::cout << "Bot Configured: " << (feature_.is_configured ? "true" : "false") << "\n\n";

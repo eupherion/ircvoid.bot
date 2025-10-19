@@ -1,11 +1,11 @@
-# CC=g++ -std=c++17
-CC=clang++ -std=c++17
+CC=g++ -std=c++17
+#CC=clang++ -std=c++17
 
 # Добавляем -Wextra и -g
-# CXXFLAGS = -std=c++17 -Wall -Wextra -g -pthread
+#CXXFLAGS = -std=c++17 -Wall -Wextra -g -pthread
 #CXXFLAGS = -std=c++17 -Wall -Wextra -pthread
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -pthread
-# CFLAGS   = -c -Wall -Wextra -g -pthread
+#CFLAGS   = -c -Wall -Wextra -g -pthread
 #CFLAGS   = -c -Wall -Wextra -pthread
 CFLAGS   = -c -Wall -Wextra -O2 -pthread
 LDFLAGS  = -lpthread -lcurl

@@ -8,14 +8,55 @@
 #include <fstream>      // std::ifstream
 #include <iostream>     // std::cerr
 #include <limits.h>     // PATH_MAX
+#include <signal.h>     // 
 #include <sys/stat.h>   // umask
 #include <sys/types.h>  // pid_t
 #include <unistd.h>     // fork, setsid, chdir, dup2, ...
 
+std::string g_pid_file_path; // Глобально храним путь к .pid-файлу
+
+void write_pid_file(const std::string& path) {
+    std::ofstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "[!] Cannot create PID file: " << path << std::endl;
+        _exit(1);
+    }
+    file << getpid() << std::endl;
+}
+
+void remove_pid_file_at_exit() {
+    if (!g_pid_file_path.empty()) {
+        unlink(g_pid_file_path.c_str());
+    }
+}
+
+void remove_pid_file(const std::string& path) {
+    unlink(path.c_str());
+}
+
+void signal_handler([[maybe_unused]]int sig) {
+    // Важно: использовать только async-signal-safe функции
+    // exit() безопасна, но не cout/cerr
+    exit(EXIT_SUCCESS);
+}
+
+void setup_signal_handlers() {
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; // Перезапуск системных вызовов при прерывании
+
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGQUIT, &sa, NULL);
+}
+
 // --- Функция демонизации ---
-void daemonize()
+void daemonize(const std::string& pid_path)
 {
-    // 0. Сохраняем текущую рабочую директорию (не обязательно, но надёжно)
+    g_pid_file_path = pid_path; // Сохраняем путь глобально
+
     char original_cwd[PATH_MAX];
     if (getcwd(original_cwd, sizeof(original_cwd)) == NULL)
     {
@@ -23,7 +64,7 @@ void daemonize()
         exit(1);
     }
 
-    pid_t pid = fork(); // Создаём дочерний процесс
+    pid_t pid = fork();
 
     if (pid < 0)
     {
@@ -33,36 +74,31 @@ void daemonize()
 
     if (pid > 0)
     {
-        // Родительский процесс: завершаемся
         exit(0);
     }
 
     // Дочерний процесс:
-    // 1. Создаём новую сессию (становимся лидером группы и теряем управляющий терминал)
+    write_pid_file(pid_path);
+    std::atexit(remove_pid_file_at_exit); // Регистрируем cleanup
+
     if (setsid() < 0)
     {
         std::cerr << "[!] setsid() failed: " << strerror(errno) << std::endl;
-        _exit(1); // Используем _exit, т.к. std::atexit не нужен в дочке
+        _exit(1);
     }
 
-    // 2. Изменяем umask
     umask(0);
 
-    // 3. Восстанавливаем оригинальную рабочую директорию
     if (chdir(original_cwd) < 0)
     {
         std::cerr << "[!] chdir(original_cwd) failed: " << strerror(errno) << std::endl;
         _exit(1);
     }
 
-    // 4. Закрываем и перенаправляем стандартные файловые дескрипторы
-    // Закрываем старые
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 
-    // Открываем /dev/null для stdin, stdout, stderr
-    // Это предотвратит ошибки ввода-вывода в будущем
     int fd_in = open("/dev/null", O_RDONLY);
     int fd_out = open("/dev/null", O_WRONLY);
     int fd_err = open("/dev/null", O_WRONLY);
@@ -73,20 +109,17 @@ void daemonize()
         _exit(1);
     }
 
-    // Теперь процесс стал демоном.
-    // Все файловые дескрипторы перенаправлены.
-    // Он не связан с терминалом.
-    // Его PID изменился (если был лидером сессии).
-    // Его родитель - init (PID 1).
+    setup_signal_handlers(); // Устанавливаем обработчики сигналов
 }
 
 int main(int argc, char *argv[])
 {
+    std::string pid_file_path = "./bot.pid"; // Можно задать через аргумент
     try
     {
         std::string config_path = "config.toml"; // Значение по умолчанию
-        
         bool should_daemonize = true; // Проверка аргумента командной строки
+
         for (int i = 1; i < argc; ++i)
         {
             if (std::string(argv[i]) == "--fg")
@@ -121,7 +154,7 @@ int main(int argc, char *argv[])
             }
             std::cout << "Using config: " << config_path << std::endl;
             std::cout << "Starting bot in daemon mode...\n";
-            daemonize();
+            daemonize(pid_file_path);
             // После демонизации вывод в std::cout/std::cerr не будет работать,
             // так как они перенаправлены в /dev/null. Используется логирование в файл.
         }

@@ -36,7 +36,7 @@ bot
 .vscode/
 
 # Dev runtime configs, objects
-conf.toml
+config.toml
 *.run
 bin/
 obj/

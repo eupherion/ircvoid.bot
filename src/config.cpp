@@ -63,7 +63,7 @@ outputRawData = true           # Вывод RAW траффика от IRC сер
 outputDebug = false            # Флаг отладочного режима (только при работе в foreground)
 botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована, иначе не запустится
 )";
-    std::string edit_note = R"(Sample config file created. Edit config.toml and run the bot again.)";
+    std::string edit_note = R"(Sample config file created. Edit conf.toml and run the bot again.)";
 
     std::ofstream file(filename);
     if (file.is_open())
@@ -84,7 +84,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 
     if (!source_exists)
     {
-        std::string samplename = "config.toml";
+        std::string samplename = "conf.toml";
         std::cout << "[ i ] No config file found. Creating sample: " << samplename << std::endl;
         createConfig(samplename); // Создаём пример файла
         if (!std::filesystem::exists(samplename))

@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
     std::string pid_file_path = "./bot.pid"; // Можно задать через аргумент
     try
     {
-        std::string config_path = "config.toml"; // Значение по умолчанию
+        std::string config_path = "conf.toml"; // Значение по умолчанию
         bool should_daemonize = true; // Проверка аргумента командной строки
 
         for (int i = 1; i < argc; ++i)

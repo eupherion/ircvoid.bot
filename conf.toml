@@ -1,0 +1,28 @@
+# Пример конфигурационного файла для IRC-бота
+
+[ircServer]	# Параметры IRC сервера
+ircServerHost = "irc.rizon.net"   # Адрес сервера IRC
+ircServerPort = 7000              # Порт сервера IRC
+ircServerPass = ""                # Пароль сервера (ZNC и сервера с паролем)
+
+[ircClient] # Параметры IRC клиента
+ircBotUser = "cbot"            # Имя пользователя бота
+ircBotNick = "CxxBot"          # Основной ник бота
+ircBotNalt = "CxxBot_"         # Альтернативный ник
+ircBotRnam = "IP info Bot"     # Реальное имя (RealName)
+ircBotNspw = ""                # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
+ircBotChan = "#test, #ircx"    # Каналы, к которым присоединяется бот при подключении
+ircBotAdmi = "const, aesh"     # Ники администраторов бота
+ircBotAcon = false             # Подключаться ли при старте (только для  работы в foreground, иначе игнорируется)
+ircBotCsym = "."               # Символ команды бота
+ircBotRcon = ""                # Сообщения серверу при соединении 
+ircBotDccv = "C++ IRC bot"     # CTCP DCC VERSION
+
+[botComset] # Параметры дополнительных функций бота
+ipInfoToken = ""               # Токен сервиса ipinfo.io
+logFileName = "mybot.irc.log"  # Имя лог-файла бота
+hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
+outputConsole = true           # Вывод на консоль (только при работе в foreground)
+outputRawData = false          # Log RAW IRC data from server
+outputDebug = false            # Флаг отладочного режима (только при работе в foreground)
+botConfigured = false          # Флаг, что дефолтная конфигурация отредактирована, иначе не запустится

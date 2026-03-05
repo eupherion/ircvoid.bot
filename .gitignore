@@ -36,10 +36,11 @@ bot
 .vscode/
 
 # Dev runtime configs, objects
+conf.toml
 *.run
 bin/
 obj/
-run/
 dev/
 log/
 tmp/
+var/

@@ -1,0 +1,28 @@
+# Конфигурационный файл для IRC-клиента
+
+[ircServer]
+ircServerHost = "45.155.205.106"
+ircServerPort = 6667
+ircServerPass = "1WeN74Aq"
+
+[ircClient]
+ircBotUser = "wsl"
+ircBotNick = "IPinfo"
+ircBotNalt = "InfoIP, ipBot" # Альтернативные ники
+ircBotRnam = "IPinfo Bot [WSL]"
+ircBotNspw = ""
+ircBotChan = "#rand, #ircx"  # Каналы, к которым присоединяется бот
+ircBotAdmi = "const, aesh" # Ники администраторов бота
+ircBotAcon = false
+ircBotCsym = "."
+ircBotRcon = ""
+ircBotDccv = "IPinfoIRC Bot (Linux)"
+
+[botComset] # Параметры дополнительных функций бота
+ipInfoToken = "a21daf8ef45e36" # Токен сервиса ipinfo.io
+logFileName = "mircd.vps.log"  # Имя лог-файла бота
+hidePingPong = true            # Скрывать PING? PONG! сервера
+outputConsole = true           # Вывод на консоль
+outputRawData = false          # Log RAW IRC data from server
+outputDebug = true             # Флаг отладочного режима
+botConfigured = true          # Флаг, что дефолтная конфигурация отредактирована

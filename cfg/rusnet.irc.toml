@@ -1,0 +1,28 @@
+# Конфигурационный файл для IRC-клиента
+
+[ircServer]
+ircServerHost = "176.108.252.56"   # Адрес сервера IRC
+ircServerPort = 6660               # Порт сервера IRC
+ircServerPass = ""                 # Пароль IRC сервера (ZNC)
+
+[ircClient]
+ircBotUser = "bot"
+ircBotNick = "zina"
+ircBotNalt = "IPinfo" # Альтернативные ники
+ircBotRnam = "IPinfo Bot"
+ircBotNspw = "L4m0dr0mZ"
+ircBotChan = "#magi, #ircxx"   # Каналы, к которым присоединяется бот
+ircBotAdmi = "const, beast"   # Ники администраторов бота
+ircBotAcon = true
+ircBotCsym = "."
+ircBotRcon = ""
+ircBotDccv = "IPinfo IRC Bot (Linux)"
+
+[botComset] # Параметры дополнительных функций бота
+ipInfoToken = "a21daf8ef45e36" # Токен сервиса ipinfo.io
+logFileName = "rusnet.irc.log"  # Имя лог-файла бота
+hidePingPong = true            # Скрывать PING? PONG! сервера
+outputConsole = false          # Вывод на консоль
+outputRawData = false          # Log RAW IRC data from server
+outputDebug = false            # Флаг отладочного режима
+botConfigured = true           # Флаг, что дефолтная конфигурация отредактирована

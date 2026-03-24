@@ -1,0 +1,28 @@
+# Конфигурационный файл для IRC-клиента
+
+[ircServer]	# Параметры IRC сервера
+ircServerHost = "localhost"   # Адрес сервера IRC
+ircServerPort = 6668          # Порт сервера IRC
+ircServerPass = "1WeN74Aq"    # Пароль IRC сервера (ZNC)
+
+[ircClient] # Параметры IRC клиента
+ircBotUser = "cbot"               # Имя пользователя бота
+ircBotNick = "CxxBot"             # Основной ник бота
+ircBotNalt = "CxxBot_, CBot1"     # Альтернативные ники
+ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
+ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны)
+ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот
+ircBotAdmi = "const, aesh"        # Ники администраторов бота
+ircBotAcon = false                # Флаг автозапуска (true/false)
+ircBotCsym = "."                  # Символ команды бота
+ircBotRcon = ""                   # Сообщения серверу при соединении
+ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
+
+[botComset] # Параметры дополнительных функций бота
+ipInfoToken = "a21daf8ef45e36"	  # Токен сервиса ipinfo.io
+logFileName = "ircat.irc.log"     # Имя лог-файла бота
+hidePingPong = true               # Скрывать PING? PONG! сервера
+outputConsole = true              # Вывод на консоль
+outputRawData = false             # Log RAW IRC data from server
+outputDebug = false               # Флаг отладочного режима
+botConfigured = true              # Флаг, что дефолтная конфигурация отредактирована

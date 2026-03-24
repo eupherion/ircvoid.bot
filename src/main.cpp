@@ -127,15 +127,15 @@ int main(int argc, char *argv[])
                 should_daemonize = false;
             }
 
-            if (std::string(argv[i]).size() > 5 && std::string(argv[i]).rfind(".toml") == std::string(argv[i]).size() - 5)
+            if (std::string config_arg = argv[i]; config_arg.length() > 5 && config_arg.substr(config_arg.length() - 5) == ".toml")
             {
-                if (std::ifstream(argv[i]).good())
+                if (std::ifstream(config_arg).good())
                 {
-                    config_path = argv[i];
+                    config_path = config_arg;
                 }
                 else
                 {
-                    std::cout << "[ ! ] Config file not found: " << argv[i] << std::endl;
+                    std::cout << "[ ! ] Config file not found: " << config_arg << std::endl;
                     return 1;
                 }
             }

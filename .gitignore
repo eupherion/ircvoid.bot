@@ -39,7 +39,7 @@ bot
 *.run
 bin/
 obj/
-dev/
+cfg/
 log/
 tmp/
 var/

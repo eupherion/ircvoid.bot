@@ -143,8 +143,8 @@ int main(int argc, char *argv[])
 
         if (should_daemonize)
         {
-            IRCConfig config(config_path);
-            const auto &feature = config.get_feature();
+            IRCConfig temp_config(config_path);
+            const auto &feature = temp_config.get_feature();
             if (!feature.is_configured)
             {
                 std::cout << "[ ! ] Bot is not configured. Please configure it first by editing config.toml.\n";

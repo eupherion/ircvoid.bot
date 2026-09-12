@@ -37,6 +37,7 @@ bot
 
 # Dev runtime configs, objects
 *.run
+qdb/
 bin/
 obj/
 cfg/

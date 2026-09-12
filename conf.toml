@@ -19,7 +19,6 @@ ircBotRcon = ""                # Сообщения серверу при сое
 ircBotDccv = "C++ IRC bot"     # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-ipInfoToken = ""               # Токен сервиса ipinfo.io
 logFileName = "mybot.irc.log"  # Имя лог-файла бота
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputConsole = true           # Вывод на консоль (только при работе в foreground)

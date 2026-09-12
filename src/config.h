@@ -34,7 +34,6 @@ public:
 
     struct Feature
     {
-        std::string ip_info_token;  // Токен для ipinfo.io
         std::string log_file;       // Имя файла лога в директории ./log
         bool hide_pingpong;         // Скрывать PING-PONG
         bool output_tty;          // Выводить подробную информацию о событиях
@@ -56,7 +55,7 @@ private:
     Server server_;
     Client client_;
     Feature feature_;
-    std::string runtime_file_; // Имя файла runtime
+    // std::string runtime_file_; // Имя файла runtime
     std::vector<std::string> split(const std::string &str, char delimiter = ',');
 };
 #endif // CONFIG_H

@@ -1,133 +1,164 @@
-#include <cstring>
+
 #include <iostream>
-#include <netdb.h>
+#include <cctype>
 #include <string>
 #include <vector>
-
+#include <netdb.h>
+#include <string_view>
 #include <sys/socket.h>
 #include <sys/types.h>
-
 #include <arpa/inet.h>
-#include <curl/curl.h>
+#include <netinet/in.h>
+#include <maxminddb.h>
 
-#include "../lib/cppjson.h"
 #include "ipinfo.h"
 
-// Функция обратного вызова для записи данных из ответа сервера
-size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *userp)
-{
-    size_t totalSize = size * nmemb;
-    userp->append((char *)contents, totalSize);
-    return totalSize;
-}
+#include "ipinfo.h"
 
-// Компаратор: IPv4 перед IPv6
-bool customIpSort(const std::string &a, const std::string &b)
-{
-    bool aIsIPv4 = a.find(':') == std::string::npos;
-    bool bIsIPv4 = b.find(':') == std::string::npos;
-
-    if (aIsIPv4 && !bIsIPv4)
-        return true; // IPv4 раньше
-    if (!aIsIPv4 && bIsIPv4)
+bool validHostOrIp(const std::string &s) {
+    if (s.empty()) return false;
+    
+    // Специфичный host-cloaking для RusNet
+    if (s.ends_with(".in-addr") || s.ends_with(".in-addr.arpa")) {
         return false;
-    return a < b; // Обычная сортировка внутри типа
-}
+    }
 
-// Принимает строку с ip адресом, возвращает ответ с ipinfo.io
-std::string getIpInfo(std::string /* string with ip */ ipAddrStr, std::string ipinfo_token)
-{
+    // Проверяем, является ли это валидным IP (v4 или v6)
+    struct in_addr ipv4;
+    struct in6_addr ipv6;
+    if (inet_pton(AF_INET, s.c_str(), &ipv4) == 1 || 
+        inet_pton(AF_INET6, s.c_str(), &ipv6) == 1) {
+        return true;
+    }
 
-    CURL *curl;
-    CURLcode res;
+    // Проверка на доменное имя
+    if (s.find('.') == std::string::npos) return false;
 
-    std::string ipInfoStr;
-    std::string ipReplStr;
-    std::string readbuffer;
-    std::string requeststr;
-
-    curl = curl_easy_init();
-    if (curl)
-    {
-        if (!ipAddrStr.empty())
-        {
-            requeststr = "http://ipinfo.io/" + ipAddrStr + "?token=" + ipinfo_token;
-            curl_easy_setopt(curl, CURLOPT_URL, requeststr.c_str());
-            // Установка функции обратного вызова для записи данных
-            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-
-            // Передача указателя на строку, куда будут записываться данные
-            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readbuffer);
-
-            // Выполнение запроса
-            res = curl_easy_perform(curl);
-
-            // Проверка результата выполнения запроса
-            if (res != CURLE_OK)
-            {
-                std::string curl_err(curl_easy_strerror(res));
-                ipInfoStr = "curl_easy_perform() failed: " + curl_err + '\n';
-            }
-            else
-            {
-                ipInfoStr = readbuffer; // Возврат строки с ipinfo.io
-                // std::cout << "IP info string:\n" << ipInfoStr << '\n';
-                nlohmann::json jsonData = nlohmann::json::parse(ipInfoStr);
-
-                if (!jsonData["ip"].is_null())
-                {
-                    ipReplStr += jsonData["ip"].get<std::string>() + ' ';
-                }
-
-                if (!jsonData["hostname"].is_null())
-                {
-                    ipReplStr += jsonData["hostname"].get<std::string>() + ' ';
-                }
-
-                if (!jsonData["city"].is_null())
-                {
-                    ipReplStr += jsonData["city"].get<std::string>() + ' ';
-                }
-
-                if (!jsonData["region"].is_null())
-                {
-                    ipReplStr += jsonData["region"].get<std::string>() + ' ';
-                }
-
-                if (!jsonData["country"].is_null())
-                {
-                    ipReplStr += jsonData["country"].get<std::string>() + ' ';
-                }
-
-                // if (!jsonData["loc"].is_null())
-                // {
-                //     ipReplStr += jsonData["loc"].get<std::string>() + ' ';
-                // }
-
-                if (!jsonData["org"].is_null())
-                {
-                    ipReplStr += jsonData["org"].get<std::string>() + ' ';
-                }
-
-                // if (!jsonData["postal"].is_null())
-                // {
-                //     ipReplStr += jsonData["postal"].get<std::string>() + ' ';
-                // }
-
-                // if (!jsonData["timezone"].is_null())
-                // {
-                //     ipReplStr += jsonData["timezone"].get<std::string>();
-                // }
-            }
-            // Освобождение ресурсов
-            curl_easy_cleanup(curl);
+    // Разрешаем буквы, цифры, точку, дефис, подчеркивание (аналог regex ^[A-Za-z0-9._-]+$)
+    for (char c : s) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-' && c != '_') {
+            return false;
         }
     }
-    else
-    {
-        std::cerr << "Failed to initialize libcurl." << std::endl;
+    return true;
+}
+
+// Функция резолва хоста в один "основной" IP-адрес
+std::string resolveToIp(const std::string &hostname) {
+    if (hostname.empty()) return "";
+
+    // Фильтрация PTR записей (.in-addr) с помощью C++20 ends_with
+    if (hostname.ends_with(".in-addr") || hostname.ends_with(".in-addr.arpa")) {
+        return ""; 
     }
-    return ipReplStr; // Возврат строки с ipinfo.io или пустой строки при ошибке
+
+    struct addrinfo hints = {};
+    struct addrinfo *res = nullptr;
+
+    hints.ai_family = AF_UNSPEC;     // IPv4 или IPv6
+    hints.ai_socktype = SOCK_STREAM;
+
+    // getaddrinfo универсален: он работает и с доменами, и с уже готовыми IP-адресами
+    int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &res);
+    if (status != 0) {
+        return ""; 
+    }
+
+    std::string first_ipv4;
+    std::string first_ipv6;
+
+    for (struct addrinfo *p = res; p != nullptr; p = p->ai_next) {
+        char ipstr[INET6_ADDRSTRLEN];
+        
+        if (p->ai_family == AF_INET && first_ipv4.empty()) {
+            struct sockaddr_in *ipv4 = reinterpret_cast<struct sockaddr_in *>(p->ai_addr);
+            inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
+            first_ipv4 = ipstr;
+        } else if (p->ai_family == AF_INET6 && first_ipv6.empty()) {
+            struct sockaddr_in6 *ipv6 = reinterpret_cast<struct sockaddr_in6 *>(p->ai_addr);
+            inet_ntop(AF_INET6, &(ipv6->sin6_addr), ipstr, sizeof(ipstr));
+            first_ipv6 = ipstr;
+        }
+        
+        // Если нашли оба типа, можно прерывать цикл
+        if (!first_ipv4.empty() && !first_ipv6.empty()) break;
+    }
+    freeaddrinfo(res);
+
+    // Приоритет отдаем IPv4, так как он исторически имеет лучшее покрытие в GeoIP базах
+    if (!first_ipv4.empty()) return first_ipv4;
+    if (!first_ipv6.empty()) return first_ipv6;
+    
+    return "";
+}
+
+GeoInfo get_ip_info(const std::string &host_or_ip, const std::string &db_path = "./qdb/GeoLite2-City.mmdb") {
+    GeoInfo info;
+
+    if (!validHostOrIp(host_or_ip)) {
+        return info; // Не похоже на хост
+    }
+
+    std::string ip = resolveToIp(host_or_ip);
+    if (ip.empty()) {
+        return info; // Ошибка резолва или .in-addr
+    }
+
+    MMDB_s mmdb;
+    int status = MMDB_open(db_path.c_str(), MMDB_MODE_MMAP, &mmdb);
+    if (status != MMDB_SUCCESS) {
+        return info; // База не найдена
+    }
+
+    int gai_error, mmdb_error;
+    MMDB_lookup_result_s result = MMDB_lookup_string(&mmdb, ip.c_str(), &gai_error, &mmdb_error);
+
+    if (gai_error != 0 || mmdb_error != MMDB_SUCCESS || !result.found_entry) {
+        MMDB_close(&mmdb);
+        return info; // IP не найден в базе
+    }
+
+    MMDB_entry_data_s entry_data;
+
+    // City
+    status = MMDB_get_value(&result.entry, &entry_data, "city", "names", "en", NULL);
+    if (status == MMDB_SUCCESS && entry_data.has_data && entry_data.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        info.city = std::string(entry_data.utf8_string, entry_data.data_size);
+    }
+
+    // Region (subdivisions)
+    // В MaxMind C API доступ к элементу массива осуществляется по строковому индексу ("0")
+    status = MMDB_get_value(&result.entry, &entry_data, "subdivisions", "0", "names", "en", NULL);
+    if (status == MMDB_SUCCESS && entry_data.has_data && entry_data.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        info.region = std::string(entry_data.utf8_string, entry_data.data_size);
+    }
+
+    // Country
+    status = MMDB_get_value(&result.entry, &entry_data, "country", "names", "en", NULL);
+    if (status == MMDB_SUCCESS && entry_data.has_data && entry_data.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        info.country = std::string(entry_data.utf8_string, entry_data.data_size);
+    }
+
+    // Country ISO
+    status = MMDB_get_value(&result.entry, &entry_data, "country", "iso_code", NULL);
+    if (status == MMDB_SUCCESS && entry_data.has_data && entry_data.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        info.country_iso = std::string(entry_data.utf8_string, entry_data.data_size);
+    }
+
+    info.valid = true;
+    MMDB_close(&mmdb);
+    return info;
+}
+
+std::string getGeoIp(const std::string &hostStr) {
+    GeoInfo info = get_ip_info(hostStr);
+    std::string geoIpInfo;
+    if (info.valid) {
+        geoIpInfo += info.city + ' ';
+        geoIpInfo += info.region + ' ';
+        geoIpInfo += info.country + ' ';
+    }
+    return geoIpInfo;
 }
 
 // Принимает строку с хостнеймом, возвращает вектор строк с ip адресом
@@ -174,8 +205,6 @@ std::vector<std::string> getIpAddr(const std::string &hostname)
         inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
         ipAddrSet.push_back(std::string(ipstr));
     }
-
     freeaddrinfo(res); // Освобождение памяти
-    std::sort(ipAddrSet.begin(), ipAddrSet.end(), customIpSort);
     return ipAddrSet;
 }

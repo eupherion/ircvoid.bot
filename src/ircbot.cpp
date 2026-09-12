@@ -462,22 +462,13 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
     // Создаём пользователя
     IRCUser user(usernick, username, userhost, realname);
 
-    if (msg.command == "315" && request)
-    {
-        sendToServer("PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command\r\n");
-        logWrite("[ ↑ ] Sent PRIVMSG " + rpl + " :" + msg.params[1] + " not found by WHO command");
-        requestInfo = false;
-        reply_to.clear();
-        return;
-    }
-
     if (msg.command == "315" && !request)
     {
         return;
     }
 
     // Находим канал и добавляем пользователя
-    if (userchan != "*")
+    if (!request && userchan != "*")
     {
         for (auto &chan : channels)
         {
@@ -513,37 +504,33 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
             }
         }
     }
-    else
+
+    if (request)
     {
-        std::vector<std::string> user_ipaddr = getIpAddr(userhost);
-        if (!user_ipaddr.empty())
+        if (validHostOrIp(userhost))
         {
-            std::string user_ipinfo = getIpInfo(user_ipaddr[0], feature.ip_info_token);
-            if (!user_ipinfo.empty())
+            std::string user_geoip = getGeoIp(userhost);
+            if (!user_geoip.empty())
             {
-                if (request)
-                {
-                    sendToServer("PRIVMSG " + rpl + " :" + user_ipinfo + "\r\n");
-                    logWrite("[ i ] IPInfo for " + userhost + ": " + user_ipinfo);
-                    logWrite("[ ↑ ] Sent: IPInfo for " + userhost + " to " + rpl);
-                    requestInfo = false;
-                    reply_to.clear();
-                }
-            }
-        }
-        else
-        {
-            logWrite("[ ! ] No IP addresses found for " + userhost);
-            if (request)
-            {
-                sendToServer("PRIVMSG " + rpl + " :No IP addresses found for " + userhost + "\r\n");
-                logWrite("[ ! ] Sent: No IP addresses found for " + userhost + " to " + rpl);
+                sendToServer("PRIVMSG " + rpl + " :" + user_geoip + "\r\n");
+                logWrite("[ ↑ ] Sent IPInfo for " + userhost + ": " + user_geoip + " to " + rpl);
                 requestInfo = false;
+                user_geoip.clear();
+                reply_to.clear();
+            }
+            else {
+                sendToServer("PRIVMSG " + rpl + " :Нет данных для " + userhost + ", хотя хост валидный\r\n");
+                logWrite("[ E ] Не найдено геоданных для валидного хоста " + userhost);
+                requestInfo = false;
+                user_geoip.clear();
                 reply_to.clear();
             }
         }
+        else {
+            sendToServer("PRIVMSG " + rpl + " :Нет данных для " + userhost + "\r\n");
+        }
+        return;
     }
-    
 }
 
 bool IRCBot::detectRusNet(const IRCMessage &msg)
@@ -836,43 +823,15 @@ void IRCBot::handleNickChange(const IRCMessage &msg)
 void IRCBot::handleCommandInfo(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto &client = config_.get_client();
-    auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
-
     logWrite("[ i ] Bot Command INFO received from <" + msg.prefix.nick + "> :" + msg.trailing);
 
     if (!args.empty())
     {
-        std::vector<std::string> ipvect = getIpAddr(args[0]);
-        if (!ipvect.empty())
-        {
-            if (ipvect.size() == 1)
-            {
-                std::string botReply = getIpInfo(ipvect[0], feature.ip_info_token);
-                sendToServer("PRIVMSG " + replydest + " :" + botReply + "\r\n");
-                logWrite("[ ↑ ] Sent reply: " + botReply + " to " + replydest);
-            }
-            else if (ipvect.size() > 1)
-            {
-                std::string replyHeader = "IPs for " + args[0] + ": ";
-                std::vector<std::string> replyBody;
-                replyBody.push_back(replyHeader);
-                for (size_t i = 0; i < ipvect.size(); i++)
-                {
-                    replyBody.push_back(ipvect[i]);
-                }
-                std::vector<std::string> packedIpAddr = pack_strings(replyBody, 496);
-                for (size_t i = 0; i < packedIpAddr.size(); i++)
-                {
-                    sendToServer("PRIVMSG " + replydest + " :" + packedIpAddr[i] + "\r\n");
-                    logWrite("[ ↑ ] Sent packed IPs to " + replydest);
-                }
-            }
-        }
-        else
-        {
-            sendToServer("PRIVMSG " + replydest + " :No IP addresses found for " + args[0] + "\r\n");
-            logWrite("[ ! ] No IP addresses found for " + args[0]);
+        if (validHostOrIp(args[0])) {
+            sendToServer("PRIVMSG " + replydest + " :" + args[0] + ": " + getGeoIp(args[0]) + "\r\n");
+        } else {
+            sendToServer("PRIVMSG " + replydest + " : Это не похоже на хост или ip\r\n");
         }
     }
     else
@@ -883,12 +842,24 @@ void IRCBot::handleCommandInfo(const IRCMessage &msg, const std::vector<std::str
 
 void IRCBot::handleCommandLoc(const IRCMessage &msg, const std::vector<std::string> &args)
 {
-    auto &client = config_.get_client();
-    auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     std::string loc_reply = "";
 
     logWrite("[ i ] Bot Command LOC received from <" + msg.prefix.nick + "> :" + msg.trailing);
+
+    if (args[0].find(".") != std::string::npos) // Если нашли '.' в аргументе - это хост или ip
+    {
+        if (validHostOrIp(args[0]))
+        {
+            std::string host_geoip = getGeoIp(args[0]);
+            sendToServer("PRIVMSG " + replydest + " :" + getGeoIp(args[0]) + "\r\n");
+        }
+        else
+        {
+            sendToServer("PRIVMSG " + replydest + " : Это не похоже на хост или ip...\r\n");
+        }
+        return;
+    }
 
     bool found = false;
     if (!args.empty())
@@ -900,42 +871,32 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg, const std::vector<std::stri
                 if (user.nick == args[0])
                 {
                     found = true;
-                    if (user.host.find("in-addr") == std::string::npos)
+                    if (validHostOrIp(user.host))
                     {
-                        std::vector<std::string> user_ip = getIpAddr(user.host);
-                        if (!user_ip.empty())
+                        std::string ip_info = getGeoIp(user.host);
+                        if (!ip_info.empty())
                         {
-                            //std::cout << "[DEBUG] user_ip: " << user_ip[0] << std::endl;
-                            std::string ip_info = getIpInfo(user_ip[0], feature.ip_info_token);
-                            if (!ip_info.empty())
-                            {
-                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " is " + ip_info + "\r\n";
-                            }
-                            else
-                            {
-                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no info for user ip " + user_ip[0] + "\r\n";
-                            }
+                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " локация: " + ip_info + "\r\n";
                         }
                         else
                         {
-                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": no ip got for " + user.host + " at " + chan.name + "\r\n";
+                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": нет данных для " + user.host + "\r\n";
                         }
                     }
                     else
                     {
-                        loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": host " + user.host + " is hidden\r\n";
+                        loc_reply = "PRIVMSG " + replydest + " :Нет данных для хоста " + user.host + " юзера " + user.nick + " на " + chan.name + "\r\n";
                     }
-                    break;
                 }
+                break;
             }
             if (found)
             {
                 if (!loc_reply.empty())
                 {
                     sendToServer(loc_reply);
-                    logWrite("[ ↑ ] Sent " + std::string(1, client.command_symbol) + "loc reply to <" + replydest + ">: " + loc_reply.substr(0, loc_reply.size() - 2));
+                    logWrite("[ ↑ ] Sent command [loc] reply to <" + replydest + ">: " + loc_reply.substr(0, loc_reply.size() - 2));
                 }
-                break;
             }
         }
         if (!found)
@@ -948,7 +909,11 @@ void IRCBot::handleCommandLoc(const IRCMessage &msg, const std::vector<std::stri
     }
     else
     {
-        std::string reply = "NOTICE " + msg.prefix.nick + " :Usage: " + client.command_symbol + "loc <nick>\r\n";
+        std::string ownHostPeply = "Не определена локация для вашего хоста";
+        if (!getGeoIp(msg.prefix.host).empty()) {
+            ownHostPeply = getGeoIp(msg.prefix.host);
+        }
+        std::string reply = "PRIVMSG " + replydest + " :" + ownHostPeply + "\r\n";
         sendToServer(reply);
         logWrite("[ ↑ ] Sent: " + reply);
     }
@@ -1291,7 +1256,7 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
         handleCommandLoc(msg, cmdargs);
     }
 
-    else if (command == "ip" || command == "info") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip <host>
+    else if (command == "info" || command == "ip") // :yournick!~yourhost@yourip PRIVMSG #channel :.ip <host>
     {
         handleCommandInfo(msg, cmdargs);
     }
@@ -1447,39 +1412,6 @@ std::vector<std::string> IRCBot::splitStringBySpaces(const std::string &input)
     {
         result.push_back(word);
     }
-
-    return result;
-}
-
-std::vector<std::string> IRCBot::pack_strings(const std::vector<std::string> &input, size_t max_length)
-{
-    std::vector<std::string> result;
-    std::string current_packet;
-
-    for (const auto &str : input)
-    {
-        // Проверяем, помещается ли текущая строка в текущий пакет
-        if (current_packet.empty())
-        {
-            // Если пакет пуст, просто добавляем строку
-            current_packet = str;
-        }
-        else if (current_packet.size() + 1 + str.size() <= max_length)
-        {
-            // Добавляем пробел и строку (или любой разделитель между строками)
-            current_packet += ' ' + str;
-        }
-        else
-        {
-            // Не помещается — сохраняем текущий пакет и начинаем новый
-            result.push_back(current_packet);
-            current_packet = str;
-        }
-    }
-
-    // Добавляем оставшийся пакет
-    if (!current_packet.empty())
-        result.push_back(current_packet);
 
     return result;
 }

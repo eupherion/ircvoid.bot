@@ -1,14 +1,14 @@
-CC=g++ -std=c++17
-#CC=clang++ -std=c++17
+# Компилятор C++ (используем CXX, а не CC)
+CXX = g++
 
-# Добавляем -Wextra и -g
-#CXXFLAGS = -std=c++17 -Wall -Wextra -g -pthread
-#CXXFLAGS = -std=c++17 -Wall -Wextra -pthread
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -pthread
-#CFLAGS   = -c -Wall -Wextra -g -pthread
-#CFLAGS   = -c -Wall -Wextra -pthread
-CFLAGS   = -c -Wall -Wextra -O2 -pthread
-LDFLAGS  = -lpthread -lcurl
+# Флаги компиляции (стандарт, предупреждения, оптимизация, поддержка потоков)
+CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -pthread
+
+# Флаги линковщика (пути поиска библиотек, если нужны. Пока пусто)
+LDFLAGS = 
+
+# Библиотеки для линковки
+LDLIBS = -lcurl -lmaxminddb
 
 SOURCE_DIR = src
 OBJECT_DIR = obj
@@ -24,15 +24,15 @@ OBJECTS = $(SOURCES:$(SOURCE_DIR)/%.cpp=$(OBJECT_DIR)/%.o)
 # Цель по умолчанию
 all: $(EXECUTABLE)
 
-# Сборка исполняемого файла
+# Сборка исполняемого файла (используем CXX и LDLIBS)
 $(EXECUTABLE): $(OBJECTS)
 	@mkdir -p $(dir $@)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-# Компиляция .cpp -> .o
+# Компиляция .cpp -> .o (используем CXX и CXXFLAGS)
 $(OBJECT_DIR)/%.o: $(SOURCE_DIR)/%.cpp
 	@mkdir -p $(dir $@)
-	$(CC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Очистка
 clean:

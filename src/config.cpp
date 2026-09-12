@@ -1,8 +1,12 @@
-#include "config.h"
-#include <algorithm>
-#include <boost/algorithm/string.hpp>
-#include <filesystem>
+// config.cpp
 #include <iostream>
+#include <algorithm>
+#include <filesystem>
+#include <boost/algorithm/string.hpp>
+
+#include "config.h"
+
+
 
 // Разделение строки на вектор по разделителю
 std::vector<std::string> IRCConfig::split(const std::string &str, char delimiter)
@@ -55,7 +59,6 @@ ircBotRcon = ""                   # Сообщения серверу при с�
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-ipInfoToken = ""               # Токен сервиса ipinfo.io
 logFileName = "mybot.irc.log"  # Имя лог-файла бота
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputConsole = true           # Вывод событий бота на консоль (только при работе в foreground)
@@ -143,7 +146,6 @@ IRCConfig::IRCConfig(const std::string &filename)
 
         // [botComset]
         auto botComset = table->get_table("botComset");
-        feature_.ip_info_token = *botComset->get_as<std::string>("ipInfoToken");
         feature_.log_file = *botComset->get_as<std::string>("logFileName");
         feature_.hide_pingpong = *botComset->get_as<bool>("hidePingPong");
         feature_.output_tty = *botComset->get_as<bool>("outputConsole");
@@ -193,7 +195,6 @@ void IRCConfig::printConfig() const
     std::cout << "Run on connect: " << client_.run_at_connect << "\n\n";
 
     std::cout << "[Bot Features Settings]\n";
-    std::cout << "IP Info Token: " << feature_.ip_info_token << "\n";
     std::cout << "Log File: " << feature_.log_file << "\n";
     std::cout << "Ping-Pong's: " << (feature_.hide_pingpong ? "Hidden" : "Show") << "\n";
     std::cout << "Output Mode: " << (feature_.output_tty ? "Console" : "Silent") << "\n";

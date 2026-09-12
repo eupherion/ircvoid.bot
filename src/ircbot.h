@@ -98,6 +98,7 @@ private:
     std::vector<IRCChan> channels;
     bool rusnetAuth = false;
     bool requestInfo = false;
+    //std::string requestNick;
     std::string reply_to;
 
     // --- Вспомогательные методы ---
@@ -143,7 +144,6 @@ private:
     std::string extractChan(const std::string &input);
     std::string stripNickPrefix(const std::string &nick_with_prefix);
     std::vector<std::string> splitStringBySpaces(const std::string &str);
-    std::vector<std::string> pack_strings(const std::vector<std::string> &input, size_t max_length);
 };
 
 #endif // IRCBOT_H

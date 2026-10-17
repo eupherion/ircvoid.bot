@@ -114,10 +114,10 @@ void daemonize(const std::string& pid_path)
 
 int main(int argc, char *argv[])
 {
-    std::string pid_file_path = "./bot.pid"; // Можно задать через аргумент
+    std::string pid_file_path = "./bot.pid"; 
     try
     {
-        std::string config_path = "conf.toml"; // Значение по умолчанию
+        std::string config_path = "config.toml"; // Значение по умолчанию
         bool should_daemonize = true; // Проверка аргумента командной строки
 
         for (int i = 1; i < argc; ++i)
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
             }
             if (!client.auto_connect)
             {
-                std::cout << "Bot is not connected to IRC server automatically. Please connect manually.\n";
+                std::cout << "In foreground bot doesn't connects automatically.\nPCheck config and connect manually.\n";
                 config.printConfig();
                 std::cout << "Connect to IRC now? [Y/n]\n";
                 std::string input;

@@ -41,9 +41,9 @@ void IRCConfig::createConfig(const std::string &filename) const
     std::string config_content = R"(# Пример конфигурационного файла для IRC-бота
 
 [ircServer]	# Параметры IRC сервера
-ircServerHost = "irc.rizon.net"   # Адрес сервера IRC
-ircServerPort = 7000              # Порт сервера IRC
-ircServerPass = ""                # Пароль сервера (ZNC и сервера с паролем)
+ircServerHost = "irc.386.su"      # Адрес сервера IRC
+ircServerPort = 6688              # Порт сервера IRC c UTF8
+ircServerPass = ""                # Пароль сервера (ZNC или сервера с паролем)
 
 [ircClient] # Параметры IRC клиента
 ircBotUser = "cbot"               # Имя пользователя бота
@@ -52,14 +52,15 @@ ircBotNalt = "CxxBot_"            # Альтернативный ник
 ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
 ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
-ircBotAdmi = "const, aesh"        # Ники администраторов бота
+ircBotAdmi = "const, beast"       # Ники администраторов бота
 ircBotAcon = false                # Подключаться ли при старте (только для  работы в foreground, иначе игнорируется)
 ircBotCsym = "."                  # Символ команды бота
 ircBotRcon = ""                   # Сообщения серверу при соединении 
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-logFileName = "mybot.irc.log"  # Имя лог-файла бота
+geoMMdbPath = "./qdb/GeoLite2-City.mmdb" # Относительный пусть (по отн. к исполняемому файлу бота) к базе MMDB
+logFileName = "mybot.irc.log"  # Имя лог-файла бота внутри директории ./log/
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputConsole = true           # Вывод событий бота на консоль (только при работе в foreground)
 outputRawData = true           # Вывод RAW траффика от IRC сервера на консоль (только при работе в foreground)
@@ -87,7 +88,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 
     if (!source_exists)
     {
-        std::string samplename = "conf.toml";
+        std::string samplename = "config.toml";
         std::cout << "[ i ] No config file found. Creating sample: " << samplename << std::endl;
         createConfig(samplename); // Создаём пример файла
         if (!std::filesystem::exists(samplename))
@@ -95,6 +96,7 @@ IRCConfig::IRCConfig(const std::string &filename)
             // На всякий случай, если createConfig не сработал
             throw std::runtime_error("Failed to create default config file: " + samplename);
         }
+        exit(1);
     }
 
     try
@@ -146,6 +148,7 @@ IRCConfig::IRCConfig(const std::string &filename)
 
         // [botComset]
         auto botComset = table->get_table("botComset");
+        feature_.mmdb_path = *botComset->get_as<std::string>("geoMMdbPath");
         feature_.log_file = *botComset->get_as<std::string>("logFileName");
         feature_.hide_pingpong = *botComset->get_as<bool>("hidePingPong");
         feature_.output_tty = *botComset->get_as<bool>("outputConsole");
@@ -195,6 +198,8 @@ void IRCConfig::printConfig() const
     std::cout << "Run on connect: " << client_.run_at_connect << "\n\n";
 
     std::cout << "[Bot Features Settings]\n";
+    bool mmdb_path_correct = std::filesystem::exists(feature_.mmdb_path);
+    std::cout << "MMDB Path: " << feature_.mmdb_path << (mmdb_path_correct ? " [Ok]" : " [Not found!]") << "\n";
     std::cout << "Log File: " << feature_.log_file << "\n";
     std::cout << "Ping-Pong's: " << (feature_.hide_pingpong ? "Hidden" : "Show") << "\n";
     std::cout << "Output Mode: " << (feature_.output_tty ? "Console" : "Silent") << "\n";

@@ -13,8 +13,6 @@
 
 #include "ipinfo.h"
 
-#include "ipinfo.h"
-
 bool validHostOrIp(const std::string &s) {
     if (s.empty()) return false;
     
@@ -92,7 +90,7 @@ std::string resolveToIp(const std::string &hostname) {
     return "";
 }
 
-GeoInfo get_ip_info(const std::string &host_or_ip, const std::string &db_path = "./qdb/GeoLite2-City.mmdb") {
+GeoInfo get_ip_info(const std::string &host_or_ip, const std::string &db_path) {
     GeoInfo info;
 
     if (!validHostOrIp(host_or_ip)) {
@@ -150,8 +148,8 @@ GeoInfo get_ip_info(const std::string &host_or_ip, const std::string &db_path = 
     return info;
 }
 
-std::string getGeoIp(const std::string &hostStr) {
-    GeoInfo info = get_ip_info(hostStr);
+std::string getGeoIp(const std::string &hostStr,  const std::string &db_path) {
+    GeoInfo info = get_ip_info(hostStr, db_path);
     std::string geoIpInfo;
     if (info.valid) {
         geoIpInfo += info.city + ' ';

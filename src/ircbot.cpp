@@ -452,7 +452,7 @@ void IRCBot::handleEndOfNames(const IRCMessage &msg) // 366 RPL_ENDOFNAMES
 
 void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::string &rpl) // :server 352 <clientnick> <channel> <username> <hostname> <servername> <nick> <flags> :<hopcount> <realname>
 {
-    auto feature = config_.get_feature();
+    const auto &feature = config_.get_feature();
     std::string userchan = msg.params[1];
     std::string username = msg.params[2];
     std::string userhost = msg.params[3];
@@ -509,7 +509,7 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
     {
         if (validHostOrIp(userhost))
         {
-            std::string user_geoip = getGeoIp(userhost);
+            std::string user_geoip = getGeoIp(userhost, feature.mmdb_path);
             if (!user_geoip.empty())
             {
                 sendToServer("PRIVMSG " + rpl + " :" + user_geoip + "\r\n");
@@ -823,13 +823,14 @@ void IRCBot::handleNickChange(const IRCMessage &msg)
 void IRCBot::handleCommandInfo(const IRCMessage &msg, const std::vector<std::string> &args)
 {
     auto &client = config_.get_client();
+    const auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     logWrite("[ i ] Bot Command INFO received from <" + msg.prefix.nick + "> :" + msg.trailing);
 
     if (!args.empty())
     {
         if (validHostOrIp(args[0])) {
-            sendToServer("PRIVMSG " + replydest + " :" + args[0] + ": " + getGeoIp(args[0]) + "\r\n");
+            sendToServer("PRIVMSG " + replydest + " :" + args[0] + ": " + getGeoIp(args[0], feature.mmdb_path) + "\r\n");
         } else {
             sendToServer("PRIVMSG " + replydest + " : Это не похоже на хост или ip\r\n");
         }
@@ -842,80 +843,87 @@ void IRCBot::handleCommandInfo(const IRCMessage &msg, const std::vector<std::str
 
 void IRCBot::handleCommandLoc(const IRCMessage &msg, const std::vector<std::string> &args)
 {
+    const auto &feature = config_.get_feature();
     std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
     std::string loc_reply = "";
 
     logWrite("[ i ] Bot Command LOC received from <" + msg.prefix.nick + "> :" + msg.trailing);
 
-    if (args[0].find(".") != std::string::npos) // Если нашли '.' в аргументе - это хост или ip
+    if (!args.empty())
     {
-        if (validHostOrIp(args[0]))
+        if (args[0].find(".") != std::string::npos) // Если нашли '.' в аргументе - это хост или ip
         {
-            std::string host_geoip = getGeoIp(args[0]);
-            sendToServer("PRIVMSG " + replydest + " :" + getGeoIp(args[0]) + "\r\n");
+            if (validHostOrIp(args[0]))
+            {
+                std::string host_geoip = getGeoIp(args[0], feature.mmdb_path);
+                sendToServer("PRIVMSG " + replydest + " :" + getGeoIp(args[0], feature.mmdb_path) + "\r\n");
+            }
+            else
+            {
+                sendToServer("PRIVMSG " + replydest + " : Это не похоже на хост или ip...\r\n");
+            }
+            return;
         }
         else
         {
-            sendToServer("PRIVMSG " + replydest + " : Это не похоже на хост или ip...\r\n");
-        }
-        return;
-    }
-
-    bool found = false;
-    if (!args.empty())
-    {
-        for (const auto &chan : channels)
-        {
-            for (const auto &user : chan.users)
+            bool found = false;
+            for (const auto &chan : channels)
             {
-                if (user.nick == args[0])
+                for (const auto &user : chan.users)
                 {
-                    found = true;
-                    if (validHostOrIp(user.host))
+                    if (user.nick == args[0])
                     {
-                        std::string ip_info = getGeoIp(user.host);
-                        if (!ip_info.empty())
+                        found = true;
+                        if (validHostOrIp(user.host))
                         {
-                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " локация: " + ip_info + "\r\n";
+                            std::string ip_info = getGeoIp(user.host, feature.mmdb_path);
+                            if (!ip_info.empty())
+                            {
+                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + " локация: " + ip_info + "\r\n";
+                            }
+                            else
+                            {
+                                loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": нет данных для " + user.host + "\r\n";
+                            }
                         }
                         else
                         {
-                            loc_reply = "PRIVMSG " + replydest + " :" + user.nick + ": нет данных для " + user.host + "\r\n";
+                            loc_reply = "PRIVMSG " + replydest + " :Нет данных для хоста " + user.host + " юзера " + user.nick + " на " + chan.name + "\r\n";
                         }
                     }
-                    else
+                    break;
+                }
+                if (found)
+                {
+                    if (!loc_reply.empty())
                     {
-                        loc_reply = "PRIVMSG " + replydest + " :Нет данных для хоста " + user.host + " юзера " + user.nick + " на " + chan.name + "\r\n";
+                        sendToServer(loc_reply);
+                        logWrite("[ ↑ ] Sent command [loc] reply to <" + replydest + ">: " + loc_reply.substr(0, loc_reply.size() - 2));
                     }
                 }
-                break;
             }
-            if (found)
+            if (!found)
             {
-                if (!loc_reply.empty())
-                {
-                    sendToServer(loc_reply);
-                    logWrite("[ ↑ ] Sent command [loc] reply to <" + replydest + ">: " + loc_reply.substr(0, loc_reply.size() - 2));
-                }
+                logWrite("[ i ] User <" + args[0] + "> not found in joined channels, sending WHO command");
+                requestInfo = true; // Запросим информацию о пользователе
+                reply_to = replydest;
+                sendToServer("WHO " + args[0] + "\r\n");
             }
-        }
-        if (!found)
-        {
-            logWrite("[ i ] User <" + args[0] + "> not found in joined channels, sending WHO command");
-            requestInfo = true; // Запросим информацию о пользователе
-            reply_to = replydest;
-            sendToServer("WHO " + args[0] + "\r\n");
         }
     }
     else
     {
-        std::string ownHostPeply = "Не определена локация для вашего хоста";
-        if (!getGeoIp(msg.prefix.host).empty()) {
-            ownHostPeply = getGeoIp(msg.prefix.host);
+        std::string ownHostReply = getGeoIp(msg.prefix.host, feature.mmdb_path);
+        if (!ownHostReply.empty())
+        {
+            std::string reply = "PRIVMSG " + replydest + " :" + ownHostReply + "\r\n";
+            sendToServer(reply);
+            logWrite("[ ↑ ] Sent: " + reply);
         }
-        std::string reply = "PRIVMSG " + replydest + " :" + ownHostPeply + "\r\n";
-        sendToServer(reply);
-        logWrite("[ ↑ ] Sent: " + reply);
+        else
+        {
+            sendToServer("PRIVMSG " + replydest + " :Не определена локация хоста " + msg.prefix.host + "\r\n");
+        }
     }
 }
 

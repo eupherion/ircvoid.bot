@@ -35,12 +35,12 @@ bot
 # Visual Studio Code settigns
 .vscode/
 
+# Zed editor settings
+.zed/
+
 # Dev runtime configs, objects
 *.run
 qdb/
-bin/
 obj/
 cfg/
 log/
-tmp/
-var/

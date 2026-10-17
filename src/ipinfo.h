@@ -48,7 +48,7 @@ GeoInfo get_ip_info(const std::string &host_or_ip, const std::string &db_path);
  * @param host Имя хоста или IP-адрес для поиска
  * @return std::string Форматированная строка вида "Город Регион Страна " или пустая строка, если данные не найдены или хост невалиден
  */
-std::string getGeoIp(const std::string &host);
+std::string getGeoIp(const std::string &host, const std::string &db_path);
 
 /**
  * @brief Получает список всех IP-адресов, связанных с указанным именем хоста

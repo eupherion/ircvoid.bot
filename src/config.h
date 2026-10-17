@@ -34,6 +34,7 @@ public:
 
     struct Feature
     {
+        std::string mmdb_path;      // Путь к базе MMDB
         std::string log_file;       // Имя файла лога в директории ./log
         bool hide_pingpong;         // Скрывать PING-PONG
         bool output_tty;          // Выводить подробную информацию о событиях

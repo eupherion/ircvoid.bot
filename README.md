@@ -12,7 +12,7 @@
 
 - Подключение к IRC-серверу (по TLS пока нет).
 - Обработка команд от администраторов.
-- Получение геолокации IP-адресов и доменов через сервис [ipinfo.io](https://ipinfo.io/).
+- Получение геолокации IP-адресов и доменов из бызы .mmdb.
 - Логирование событий в файл.
 - Поддержка CTCP-запросов (`VERSION`, `PING`, `TIME`).
 - Управление каналами через команды `.join`, `.part`.
@@ -30,21 +30,17 @@
 - **C++17** или новее
 - `g++` или `clang++`
 - `Boost.Asio`, `Boost.System`, `Boost.Filesystem`
-- `libcurl` (для HTTP-запросов к `ipinfo.io`)
+- `libmaxminddb-dev` - запросов к mmdb ( maxminddb.h )
 - `make` (для сборки через Makefile)
 
 ### Установка зависимостей (Ubuntu/Debian)
 
 ```bash
 sudo apt update
-sudo apt install build-essential libboost-all-dev libcurl4-openssl-dev clang
+sudo apt install build-essential libboost-all-dev libmaxminddb-dev clang
 ```
 
 ### Сборка
-
-Проект поставляется с `Makefile`, что упрощает сборку.
-
-#### Вариант 1: Сборка через `make` (рекомендуется)
 
 ```bash
 git clone https://github.com/eupherion/ircvoid.bot.git  
@@ -52,25 +48,6 @@ cd ircvoid.bot
 make
 ```
 
-Бот будет собран с `clang++` (по умолчанию в `Makefile`). Выходной файл — `bot`.
-
-#### Вариант 2: Сборка вручную
-
-Для сборки вручную используйте:
-
-```bash
-# Сборка с помощью clang++
-clang++ -std=c++17 -O2 src/main.cpp src/config.cpp src/ipinfo.cpp src/ircbot.cpp \
-        -o bot \
-        -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
-
-# Или с g++
-g++ -std=c++17 -O2 src/main.cpp src/config.cpp src/ipinfo.cpp src/ircbot.cpp \
-    -o bot \
-    -lboost_system -lboost_filesystem -lboost_thread -lpthread -lcurl
-```
-
-> 🔧 **Примечание:** В `Makefile` используется `clang++`. Чтобы переключиться на `g++`, раскомментируйте строку `CC=g++ -std=c++17` и закомментируйте `CC=clang++ -std=c++17`.
 
 #### Очистка
 
@@ -110,8 +87,8 @@ ircBotRcon = ""                   # Сообщения серверу при с�
 ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
-ipInfoToken = ""               # Токен сервиса ipinfo.io
-logFileName = "mybot.irc.log"  # Имя лог-файла бота
+geoMMdbPath = "./qdb/GeoLite2-City.mmdb" # Относительный пусть (по отн. к исполняемому файлу бота) к базе MMDB
+logFileName = "mybot.irc.log"  # Имя лог-файла бота в директории ./log/ (по отн. к исполняемому файлу бота)
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputConsole = true           # Вывод внутренних событий бота на консоль (только при работе в foreground)
 outputRawData = true           # Вывод RAW траффика от IRC сервера на консоль (только при работе в foreground)
@@ -123,7 +100,6 @@ botConfigured = false          # Флаг, что дефолтная конфи�
 
 > ⚠️ При отсутствии `conf.toml` и запуске без аргументов бот создаст дефолтный `conf.toml`.
 
-> 🔐 Поле `ipInfToken` необходимо для получения данных от `ipinfo.io`. Получите его бесплатно на [https://ipinfo.io/](https://ipinfo.io/).
 
 ---
 
@@ -163,8 +139,6 @@ botConfigured = false          # Флаг, что дефолтная конфи�
 
 | Команда | Описание |
 |--------|--------|
-| `.ip <ip или домен>` | Получает информацию о IP/домене через `ipinfo.io` |
-| `.info <ip или домен>` | Синоним `.ip` |
 | `.loc <nick>` | Выдаст информацию о хосте пользователя с ником `<nick>` (если хост виден) |
 | `.nick <newnick>` | Меняет никнейм бота |
 | `.join #channel` | Присоединяется к указанному каналу (только для админов) |
@@ -188,30 +162,16 @@ botConfigured = false          # Флаг, что дефолтная конфи�
 
 ---
 
-## 6) Расширение функционала
-
-Вы можете легко расширить бота:
-
-- Добавить новые команды в `parseServerMessage()`.
-- Реализовать `.whois`, `.mode`, `.kick`.
-- Добавить поддержку DCC-передач.
-- Интегрировать с базой данных.
-
----
-
-## 7) Лицензия
+## 6) Лицензия
 
 MIT License — см. файл `LICENSE`.
 
 ---
 
-## 8) Автор
+## 7) Автор
 
 **eupherion**  
 GitHub: [@eupherion](https://github.com/eupherion)
 
----
 
-> 🚀 Бот готов к использованию в реальных IRC-сетях.  
-> Поддерживает современный C++, асинхронную работу и масштабируемую архитектуру.
 ```

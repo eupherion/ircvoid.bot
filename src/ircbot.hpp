@@ -2,7 +2,7 @@
 #ifndef IRCBOT_H
 #define IRCBOT_H
 
-#include "config.h" // IRCConfig определён там
+#include "config.hpp" // IRCConfig определён там
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind/bind.hpp>

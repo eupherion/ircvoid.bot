@@ -1,6 +1,6 @@
-#include "config.h" // Используем IRCConfig
-#include "ipinfo.h" // Используем getIpInfo
-#include "ircbot.h" // Используем IRCBot
+#include "config.hpp" // Используем IRCConfig
+#include "ipinfo.hpp" // Используем getIpInfo
+#include "ircbot.hpp" // Используем IRCBot
 
 #include <cerrno>       // errno
 #include <cstdlib>      // exit, _exit

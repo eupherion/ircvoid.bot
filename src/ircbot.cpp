@@ -512,15 +512,15 @@ void IRCBot::handleWhoReply(const IRCMessage &msg, bool request, const std::stri
             std::string user_geoip = getGeoIp(userhost, feature.mmdb_path);
             if (!user_geoip.empty())
             {
-                sendToServer("PRIVMSG " + rpl + " :" + user_geoip + "\r\n");
+                sendToServer("PRIVMSG " + rpl + " :" + user_geoip + " [данные WHO]\r\n");
                 logWrite("[ ↑ ] Sent IPInfo for " + userhost + ": " + user_geoip + " to " + rpl);
                 requestInfo = false;
                 user_geoip.clear();
                 reply_to.clear();
             }
             else {
-                sendToServer("PRIVMSG " + rpl + " :Нет данных для " + userhost + ", хотя хост валидный\r\n");
-                logWrite("[ E ] Не найдено геоданных для валидного хоста " + userhost);
+                sendToServer("PRIVMSG " + rpl + " :Не найдено данных для " + userhost + "\r\n");
+                logWrite("[ E ] Не найдено геоданных для хоста " + userhost);
                 requestInfo = false;
                 user_geoip.clear();
                 reply_to.clear();

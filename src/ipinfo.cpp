@@ -11,7 +11,7 @@
 #include <netinet/in.h>
 #include <maxminddb.h>
 
-#include "ipinfo.h"
+#include "ipinfo.hpp"
 
 bool validHostOrIp(const std::string &s) {
     if (s.empty()) return false;

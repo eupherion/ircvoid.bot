@@ -1,6 +1,6 @@
-#include "ircbot.h"
-#include "config.h"
-#include "ipinfo.h"
+#include "ircbot.hpp"
+#include "config.hpp"
+#include "ipinfo.hpp"
 
 #include <iostream>
 

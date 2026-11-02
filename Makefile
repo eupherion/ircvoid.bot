@@ -8,7 +8,7 @@ CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -pthread
 LDFLAGS = 
 
 # Библиотеки для линковки
-LDLIBS = -lcurl -lmaxminddb
+LDLIBS = -lmaxminddb -lboost_iostreams
 
 SOURCE_DIR = src
 OBJECT_DIR = obj

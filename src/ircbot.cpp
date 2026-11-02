@@ -1,5 +1,6 @@
 #include "ircbot.hpp"
 #include "config.hpp"
+#include "quotes.hpp"
 #include "ipinfo.hpp"
 
 #include <iostream>
@@ -30,6 +31,8 @@ IRCBot::IRCBot(boost::asio::io_context &io_context, const IRCConfig &config)
 {
     // Инициализация других членов класса, если нужно
 }
+
+Quotes quotes("./qdb/mq.json");
 
 void IRCBot::handleConnect(const boost::system::error_code &error)
 {
@@ -1201,6 +1204,27 @@ void IRCBot::handleCommandNames(const IRCMessage &msg, const std::vector<std::st
     }
 }
 
+void IRCBot::handleCommandQrand(const IRCMessage &msg, const std::vector<std::string> &args)
+{
+    std::string replydest = (msg.params[0].find("#") != std::string::npos) ? msg.params[0] : msg.prefix.nick;
+    
+    if (auto quote = quotes.get_random_quote()) {
+        std::string date = Quotes::getQuoteDate(*quote);       // "" для null
+        std::string id   = Quotes::getQuoteId(*quote);         // "5"
+        std::string user = Quotes::getQuotePostedBy(*quote);   // "Think_"
+        std::string text = Quotes::getQuoteText(*quote);       // "<Georgij> такие как я..."
+
+        std::cout << "#" << id << " " << user << ": " << text << '\n';
+        std::cout << "MSG Params [0]:" << msg.params[0] << '\n';
+        std::cout << "Var replydest:" << replydest << '\n';
+        sendToServer("PRIVMSG " + replydest + " :[" + id + "] " + text + " By:" + user + ", " + date + "\r\n");
+    } else {
+        std::cout << "Цитат нет\n";
+        sendToServer("PRIVMSG " + replydest + " :Цитат нет\r\n");
+    }
+}
+
+
 void IRCBot::handlePrivMsg(const IRCMessage &msg)
 {
     const auto &client = config_.get_client();
@@ -1272,6 +1296,13 @@ void IRCBot::handlePrivMsg(const IRCMessage &msg)
     else if (command == "help") // :yournick!~yourhost@yourip PRIVMSG #channel :.help
     {
         handleCommandHelp(msg, cmdargs);
+    }
+
+    else if (command == "q")
+    {
+        if (cmdargs.empty()) {
+            handleCommandQrand(msg, cmdargs);
+        }
     }
 }
 

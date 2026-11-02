@@ -6,10 +6,10 @@ ircServerPort = 6688              # Порт сервера IRC c UTF8
 ircServerPass = ""                # Пароль сервера (ZNC или сервера с паролем)
 
 [ircClient] # Параметры IRC клиента
-ircBotUser = "cbot"               # Имя пользователя бота
-ircBotNick = "CxxBot"             # Основной ник бота
-ircBotNalt = "CxxBot_"            # Альтернативный ник
-ircBotRnam = "IP info Bot"        # Реальное имя (RealName)
+ircBotUser = "bot"               # Имя пользователя бота
+ircBotNick = "desune"             # Основной ник бота
+ircBotNalt = "misune"            # Альтернативный ник
+ircBotRnam = "Info Bot"        # Реальное имя (RealName)
 ircBotNspw = ""                   # Пароль NickServ (двойные кавычки обязательны, пустое если авторизация не нужна)
 ircBotChan = "#test, #ircx"       # Каналы, к которым присоединяется бот при подключении
 ircBotAdmi = "const, beast"       # Ники администраторов бота
@@ -20,7 +20,7 @@ ircBotDccv = "C++ IRC bot"        # CTCP DCC VERSION
 
 [botComset] # Параметры дополнительных функций бота
 geoMMdbPath = "./qdb/GeoLite2-City.mmdb" # Относительный пусть (по отн. к исполняемому файлу бота) к базе MMDB
-logFileName = "mybot.irc.log"  # Имя лог-файла бота внутри директории ./log/
+logFileName = "ircnet.irc.log"  # Имя лог-файла бота внутри директории ./log/
 hidePingPong = true            # Скрывать PING? PONG! сервера (в т.ч. из логов)
 outputConsole = true           # Вывод событий бота на консоль (только при работе в foreground)
 outputRawData = true           # Вывод RAW траффика от IRC сервера на консоль (только при работе в foreground)

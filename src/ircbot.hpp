@@ -136,6 +136,7 @@ private:
     void handleCommandNick(const IRCMessage &msg, const std::vector<std::string> &args);
     void handleCommandQuit(const IRCMessage &msg, const std::vector<std::string> &args);
     void handleCommandNames(const IRCMessage &msg, const std::vector<std::string> &args);
+    void handleCommandQrand(const IRCMessage &msg, const std::vector<std::string> &args);
 
     // --- Утилиты ---
     bool isAdmin(const std::string &nick);
